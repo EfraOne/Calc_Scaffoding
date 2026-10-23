@@ -1,0 +1,1307 @@
+<!doctype html><html lang="ru" ><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Калькулятор лесов 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Раскладка: слева параметры, справа сцена 3D и состав комплекта ниже. Чертёжная палитра, один акцент — сигнальный оранжевый. */
+:root{
+  --bg:#e8ecef; --panel:#f6f8f9; --ink:#13212b; --muted:#566874; --line:#ccd5db; --soft:#edf1f3;
+  --accent:#d9480f; --accent-ink:#ffffff; --stage:#fbfcfc; --grid:#c9d3d9; --wall:#8a9aa6;
+  --c1:#2f6190; --c2:#c58a0a; --c3:#d9480f; --c4:#6c808f; --c5:#b57f48; --c6:#0e8a83; --c7:#18232b; --c8:#7b4bb7;
+  --f-head:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d151b; --panel:#141e26; --ink:#e3ebf0; --muted:#8c9eaa; --line:#25343f; --soft:#1a2630;
+  --accent:#ff8a3d; --accent-ink:#1b0f06; --stage:#101a21; --grid:#22313b; --wall:#5d7280;
+  --c1:#6fa9dc; --c2:#e6b94e; --c3:#ff8a3d; --c4:#8aa0b0; --c5:#cc9a61; --c6:#3cc2b8; --c7:#dfe8ed; --c8:#b896ea; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d151b; --panel:#141e26; --ink:#e3ebf0; --muted:#8c9eaa; --line:#25343f; --soft:#1a2630;
+  --accent:#ff8a3d; --accent-ink:#1b0f06; --stage:#101a21; --grid:#22313b; --wall:#5d7280;
+  --c1:#6fa9dc; --c2:#e6b94e; --c3:#ff8a3d; --c4:#8aa0b0; --c5:#cc9a61; --c6:#3cc2b8; --c7:#dfe8ed; --c8:#b896ea; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.45 var(--f-body);
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+h1{margin:0;font:700 30px/1 var(--f-head);letter-spacing:.01em}
+.sub{color:var(--muted);margin-top:6px;max-width:60ch}
+.tabs{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.tabs button{all:unset;cursor:pointer;padding:10px 20px;font:600 15px/1 var(--f-head);letter-spacing:.02em;color:var(--muted);display:flex;gap:8px;align-items:center}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.tabs button:focus-visible,.seg label:focus-within,.tool:focus-visible,.step button:focus-visible,.copy:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.side{padding:16px;display:flex;flex-direction:column;gap:18px}
+.side h2,.bom h2{margin:0 0 10px;font:600 12px/1 var(--f-head);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.dims{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.dims>*{min-width:0}
+.field label{display:block;font-weight:500;margin-bottom:4px}
+.field small{color:var(--muted);font-size:12px;display:block;margin-top:3px;min-height:1.2em}
+.step{display:flex;border:1px solid var(--line);border-radius:6px;background:var(--stage);overflow:hidden}
+.step button{all:unset;cursor:pointer;width:34px;text-align:center;font:500 18px/38px var(--f-mono);color:var(--muted);user-select:none}
+.step button:hover{background:var(--soft);color:var(--ink)}
+.step input{all:unset;flex:1;min-width:0;text-align:center;font:500 16px/38px var(--f-mono);font-variant-numeric:tabular-nums}
+.opts{display:flex;flex-direction:column;gap:14px}
+.opt>span{display:block;font-weight:500;margin-bottom:5px}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg label span{display:block;padding:6px 10px;border:1px solid var(--line);border-radius:5px;background:var(--stage);color:var(--muted);font-size:13px}
+.seg input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.seg input:disabled+span{opacity:.4}
+.note{color:var(--muted);font-size:12.5px;border-top:1px dashed var(--line);padding-top:12px}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media (max-width:640px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fact{background:var(--panel);padding:10px 14px}
+.fact b{display:block;font:500 21px/1.2 var(--f-mono);font-variant-numeric:tabular-nums}
+.fact span{color:var(--muted);font-size:12px}
+.stage{position:relative;overflow:hidden;background:var(--stage)}
+#cv{display:block;width:100%;height:clamp(340px,62vh,640px);touch-action:none;cursor:grab}
+#cv.drag{cursor:grabbing}
+.toolbar{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.tool{all:unset;cursor:pointer;padding:6px 10px;border:1px solid var(--line);background:var(--panel);border-radius:5px;font-size:12.5px;font-weight:500}
+.tool:hover{border-color:var(--accent);color:var(--accent)}
+.cvwrap{position:relative}
+#frag{position:absolute;left:10px;top:52px;max-width:calc(100% - 20px);background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:5px;padding:6px 10px;font-size:12.5px}
+.hint{color:var(--muted);font-size:12px;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.badge{position:absolute;right:10px;top:10px;font:500 12px/1 var(--f-mono);color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:6px 8px}
+#info{position:absolute;right:10px;bottom:10px;max-width:min(320px,calc(100% - 20px));background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;display:none;gap:6px;flex-direction:column;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+#info.on{display:flex}
+#info b{font-weight:600}
+#info .meta{color:var(--muted);font:500 12.5px var(--f-mono)}
+#info .acts{display:flex;gap:6px;margin-top:2px}
+#tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;padding:4px 8px;border-radius:4px;display:none;max-width:260px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.chip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:4px 9px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;background:var(--stage)}
+.chip:hover{border-color:var(--accent)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip.off{opacity:.45;text-decoration:line-through}
+.chip.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.chip .sw{margin:0}
+tbody tr{cursor:pointer}
+tbody tr.sel{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
+tbody tr.off td{opacity:.45}
+.bom{padding:16px}
+.bomhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.copy{all:unset;cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:5px;font-weight:500;font-size:13px;background:var(--stage)}
+.copy:hover{border-color:var(--accent);color:var(--accent)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+.np{color:var(--muted);font-family:var(--f-body)}
+tfoot tr.sub td{font-weight:400;color:var(--muted);font-size:12.5px;white-space:normal;padding-top:2px}
+th{font:600 11px/1 var(--f-head);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th.n,td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:var(--soft)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:9px;vertical-align:-1px}
+tfoot td{font-weight:600;border-bottom:0}
+#fallback{display:none;width:100%;height:120px;margin-top:10px;font:12px var(--f-mono);background:var(--stage);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px}
+
+/* лист для печати: всегда как бумага — белый фон, тёмный текст */
+#pmodal{position:fixed;inset:0;z-index:50;background:rgba(10,16,20,.82);overflow:auto;padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+#pmodal[hidden]{display:none!important}
+.pbar{max-width:1120px;margin:0 auto 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pbar .copy{background:var(--panel);color:var(--ink)}
+.pbar .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pnote{color:#fff;font-size:12.5px;flex-basis:100%}
+#sheet{max-width:1120px;margin:0 auto;background:#fff;color:#111;padding:28px 30px;font:13px/1.35 var(--f-body);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#sheet h1{font:600 22px/1.2 var(--f-head);margin:0 0 4px;color:#111;text-align:center}
+#sheet .psub{text-align:center;color:#555;margin-bottom:16px;font-size:12px}
+.pgrid{display:grid;grid-template-columns:minmax(380px,470px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:760px){.pgrid{grid-template-columns:minmax(0,1fr)}}
+.ptab{width:100%;border-collapse:collapse;min-width:0}
+.ptab th,.ptab td{border:1px solid #444;padding:3px 7px;color:#111;font-size:12.5px;text-align:left}
+.ptab th{background:#ece6d6;font:600 12.5px var(--f-body);letter-spacing:0;text-transform:none}
+.ptab td.v{text-align:right;font-family:var(--f-mono);white-space:nowrap}
+.ptab tr.gap td{height:12px;padding:0}
+.ptab tr.tot td{font-weight:600}
+.ptab tr.hd td{background:#ece6d6;font-weight:600}
+.pimg{text-align:center}
+.pimg img{max-width:100%;height:auto;border:1px solid #ddd}
+.pcap{color:#555;font-size:11.5px;margin-top:6px}
+.pfoot{margin-top:16px;color:#666;font-size:11px;border-top:1px solid #ccc;padding-top:6px}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff!important;padding:0!important}
+  body>*:not(#pmodal){display:none!important}
+  #pmodal{position:static;background:none;padding:0;overflow:visible}
+  .pbar{display:none!important}
+  #sheet{box-shadow:none;max-width:none;padding:0}
+  .pgrid{grid-template-columns:440px 1fr}
+}
+
+@media (max-width:640px){.badge{display:none}}
+@media (prefers-reduced-motion:no-preference){.tabs button,.tool,.copy{transition:background .12s,color .12s,border-color .12s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Калькулятор лесов 3D</h1>
+      <div class="sub">Задайте размеры и получите состав комплекта и трёхмерную схему. Схему можно вращать.</div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" id="tab-frame" aria-selected="true" data-k="frame">Рамные</button>
+      <button role="tab" id="tab-clamp" aria-selected="false" data-k="clamp">Хомутовые</button>
+      <button role="tab" id="tab-radius" aria-selected="false" data-k="radius">Радиусные</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="card side">
+      <section>
+        <h2>Размеры</h2>
+        <div class="dims" id="dims"></div>
+      </section>
+      <section>
+        <h2>Исполнение</h2>
+        <div class="opts" id="opts"></div>
+      </section>
+      <div class="note" id="note"></div>
+    </aside>
+
+    <div class="main">
+      <div class="facts" id="facts"></div>
+      <div class="card stage" id="stagebox">
+        <div class="cvwrap"><canvas id="cv" aria-label="Трёхмерная схема лесов"></canvas>
+        <div class="toolbar">
+          <button class="tool" data-v="home">Общий вид</button>
+          <button class="tool" data-v="front">Фасад</button>
+          <button class="tool" data-v="side">Торец</button>
+          <button class="tool" data-v="top">Сверху</button>
+        </div>
+        <div class="badge" id="badge"></div>
+        <div id="info" role="status"></div><div id="frag" hidden></div></div>
+        <div class="hint">Нажмите на элемент схемы, чтобы узнать, что это. Вращение: перетаскивание. Масштаб: колесо или щипок. Сдвиг: Shift. Метки ниже скрывают и показывают группы.</div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div id="tip"></div>
+      <section class="card bom">
+        <div class="bomhead"><h2 style="margin:0">Состав комплекта</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="copy" id="printbtn">Печать</button><button class="copy" id="copy">Скопировать список</button></div></div>
+        <div class="tw"><table>
+          <thead><tr><th>Позиция</th><th class="n">Кол-во, шт</th><th class="n">Цена, ₽</th><th class="n">Сумма, ₽</th><th class="n">Масса, кг</th></tr></thead>
+          <tbody id="rows"></tbody>
+          <tfoot id="foot"></tfoot>
+        </table></div>
+        <textarea id="fallback" readonly></textarea>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="pmodal" hidden role="dialog" aria-label="Лист для печати">
+  <div class="pbar">
+    <button class="copy primary" id="p-print">Печать или PDF</button>
+    <button class="copy" id="p-png">Сохранить схему (PNG)</button>
+    <button class="copy" id="p-close">Закрыть</button>
+    <div class="pnote" id="p-note"></div>
+  </div>
+  <div id="sheet"></div>
+</div>
+<script>
+// Расчёт комплектации лесов. Чистые функции, без DOM.
+(function (root) {
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, Math.round(Number(v)) || a));
+
+  // Ориентировочная масса единицы, кг (по сечению труб; правится здесь).
+  const KG = {
+    frameL: 7.8, frame: 5.8, frameE: 5.8,
+    diag: 4.0, horiz: 1.9, rigel: 6.4, rigelX: 8.5, bracket: 0.6, jack: 3.5, plate: 1.2,
+    deckW: 13.0, deckM: 9.5, deckC: 10.5,
+    st4: 6.0, st2: 3.0, sv: 4.3, pop: 2.3, hn: 1.0, hp: 1.2, lad: 5.5, kr: 0.9, pod: 1.2, deckC2: 8.0
+  };
+
+  const fmt1 = (x) => String(x).replace('.', ',');
+  const MAX_H = 100, MAX_L = 10000, MAX_AREA = 100000;   // пределы расчёта: высота, длина, площадь фасада
+
+  // Крепёж кронштейна к стене: по одному на кронштейн.
+  const ANCHORS = {
+    bolt: ['Болт анкерный 10×100', 0.08],
+    dowel: ['Дюбель с шурупом 10×80', 0.03],
+    nut: ['Болт анкерный с гайкой 10×97', 0.08]
+  };
+  function addAnchor(add, p, qty) {
+    const a = ANCHORS[p.anchor];
+    if (a && qty > 0) add('anchor', a[0], qty, a[1], null);
+  }
+
+  // ---------- Прайс: цена с НДС, ₽ и вес, кг (книги «Рамные и хомутовые леса» и «Комплектующие») ----------
+  // null — цена по запросу. Вес с пометкой «оц.» в прайсе не указан и взят ориентировочно.
+  const PRICE = {
+    frame: {   // [цена, вес]
+      20: { L: [982.86, 7.1], P: [806.58, 5.8] },
+      30: { L: [1068.32, 7.7], P: [876.02, 6.3] },
+      40: { L: [1185.84, 8.9], P: [1089.69, 7.5] },
+      60: { L: [1415.53, 10.9], P: [1281.99, 9.5] },
+      100: { L: [1869.56, 14.0], P: [1666.58, 12.5] }
+    },
+    horiz: { 3: [213, 1.7], 2.5: [182, 1.4], 2: [139, 1.1] },
+    diag: { 3: [448, 3.5], 2.5: [390, 3.05], 2: [331, 2.6] },
+    rigel: { 3: [775, 6.1], 2.5: [663, 5.2], 2: [534, 4.2] },
+    deck11: [375, 18], deck051: [323.4, 16], deck0610: [null, 10.9],
+    metal: { 3: [3500, 33.8], 2: [4500, 22.5] },
+    plate: [107, 0.4],
+    screw: { 250: [345, 3.5], 350: [380, 4], 500: [405, 4.5], 750: [510, 5] },
+    bracket: { 270: [112, 0.5], 400: [176, 0.6], 500: [223, 0.7], 600: [233, 0.8] },
+    clamp: {   // ЛСПХ: стойки, связи, поперечина
+      40: { st4: 1131, st2: 565, long: 1532, short: 1074, pop: 593 },
+      60: { st4: 1379, st2: 696, long: 1795, short: 1258, pop: 696 },
+      100: { st4: 1711, st2: 871, long: 2215, short: 1565, pop: 768 }
+    },
+    clampKg: { st4: 10.2, st2: 5.2, long: 13.4, short: 9.4, pop: 4.7, hn: 1, hp: 1, lad: 8 },
+    ladder: 1068, deck0515: [413, 25], deck0512: [413, 20]
+  };
+  const CLAMP_SERIES = { 40: 'ЛСПХ 40', 60: 'ЛСПХ 60', 100: 'ЛСПХ 100' };
+  function supportItem(add, p, qty, id) {
+    id = id || 'base';
+    if (p.support === 'screw' || p.support === 'jack') {
+      const len = PRICE.screw[p.screwLen] ? Number(p.screwLen) : 350, pr = PRICE.screw[len];
+      add(id, `Опора винтовая ${len} мм`, qty, pr[1], pr[0]);
+    } else add(id, 'Опора простая', qty, PRICE.plate[1], PRICE.plate[0]);
+  }
+  function bracketItem(add, p, id, qty) {
+    const len = PRICE.bracket[p.brLen] ? Number(p.brLen) : 270, pr = PRICE.bracket[len];
+    add(id, `Кронштейн крепления к стене L=${len} мм`, qty, pr[1], pr[0]);
+  }
+  function makeAdd(items) {
+    return (id, name, qty, kg, price) => {
+      if (qty > 0) items.push({ id, name, qty, kg: qty * kg, unit: kg, price: price == null ? null : price, cost: price == null ? null : qty * price });
+    };
+  }
+  function totals(items) {
+    return {
+      mass: items.reduce((a, i) => a + i.kg, 0),
+      cost: items.reduce((a, i) => a + (i.cost || 0), 0),
+      unpriced: items.filter(i => i.price == null).map(i => i.name)
+    };
+  }
+
+  // Серии рамных лесов: труба рамы и её масса на метр, кг/м (сталь 7,85 г/см³).
+  const SERIES = {
+    20: { pipe: '42×1,2', kgm: 1.21, depth: 0.7 },
+    30: { pipe: '42×1,2', kgm: 1.21, depth: 1.0 },
+    40: { pipe: '42×1,5', kgm: 1.50, depth: 1.0 },
+    60: { pipe: '48×2', kgm: 2.27, depth: 1.0 },
+    100: { pipe: '48×2,5', kgm: 2.80, depth: 1.0 }
+  };
+
+  /** Рамные леса. Секция 2, 2,5 или 3 м. */
+  function calcFrame(p) {
+    const h = clamp(p.h, 2, MAX_H);
+    const L = Math.min(MAX_L, Math.max(1, Math.round(Number(p.L) * 2) / 2 || 1));
+    const tReq = clamp(p.t, 0, 100);
+    const cell = [2, 2.5, 3].includes(Number(p.cell)) ? Number(p.cell) : 3;
+    const C = fmt1(cell);
+    const ser = SERIES[p.series] ? Number(p.series) : 30;
+    const pipe = SERIES[ser].pipe, kgm = SERIES[ser].kgm, depth = SERIES[ser].depth;
+    const pipeName = depth < 1 ? `${pipe} мм, глубина ${fmt1(depth)} м` : `${pipe} мм`;
+    const n = Math.ceil(h / 2);   // рамы только по 2 м: высота округляется вверх
+    const sWant = Math.max(1, Math.round(L / cell + 1e-9));
+    const sMax = Math.max(1, Math.floor(MAX_AREA / (2 * n * cell) + 1e-9));
+    const s = Math.min(sWant, sMax);   // секций; площадь фасада не больше 100 000 м²
+    const capped = sWant > sMax;
+    const rows = s + 1;
+    const lad = clamp(p.l, 1, rows);
+    const t = Math.min(tReq, n);   // ярусов настила не больше, чем уровней рам
+    const H = 2 * n;
+    // связи: 1 — диагональ и горизонталь на секцию; 2 — экономный, шахматный порядок; 3 — диагональ и 2 горизонтали
+    const braces = [1, 3].includes(Number(p.braces)) ? Number(p.braces) : 1;   // экономный вариант убран
+    // настил: wood | metal; секция 2,5 м металлом не комплектуется
+    let deck = p.deck === 'metal' ? 'metal' : 'wood';
+    if (cell === 2.5) deck = 'wood';
+    const wall = p.wall !== false;
+
+    const items = [];
+    const add = makeAdd(items);
+
+    const framesLad = n * lad;
+    const framesPlain = n * (rows - lad);
+
+    const FR = PRICE.frame[ser];
+    add('frameL', `Рама с лестницей ЛРСП ${ser} (${pipeName})`, framesLad, FR.L[1], FR.L[0]);
+    add('frame', `Рама проходная ЛРСП ${ser} (${pipeName})`, framesPlain, FR.P[1], FR.P[0]);
+    const cells = n * s;                       // секций по высоте и длине
+    // экономный: секции чередуются в шахматном порядке — в одной диагональ, в соседней горизонталь
+    // по ГОСТ: диагонали в шахматном порядке, горизонтали с обеих сторон на каждом уровне и верхний ряд
+    const gost = p.method === 'gost';
+    const diag = gost || braces === 2 ? Math.ceil(cells / 2) : cells;
+    add('diag', `Связь диагональная L=${C} м`, diag, PRICE.diag[cell][1], PRICE.diag[cell][0]);
+    const horiz = gost ? s * (2 * n + 1) : braces === 3 ? 2 * cells : braces === 2 ? cells - diag : cells;
+    add('horiz', `Связь горизонтальная L=${C} м`, horiz, PRICE.horiz[cell][1], PRICE.horiz[cell][0]);
+
+    // комплектация ярусов: full — ригели и щиты, rigel — только ригели, none — просто рамы
+    const deckSet = ['full', 'rigel', 'none'].includes(p.deckSet) ? p.deckSet : 'full';
+    if (deckSet === 'rigel') {
+      add('rigel', `Ригель настила L=${C} м`, 2 * s * t, PRICE.rigel[cell][1], PRICE.rigel[cell][0]);
+    } else if (deckSet === 'none') {
+      // без ригелей и щитов
+    } else if (deck === 'wood') {
+      add('rigel', `Ригель настила L=${C} м`, 2 * s * t, PRICE.rigel[cell][1], PRICE.rigel[cell][0]);
+      if (depth < 1) {      // серия 20: щиты 0,6×1,0 м, остаток секции 2,5 м не закрывается
+        add('deck', 'Настил деревянный 0,6×1,0 м', Math.floor(cell) * s * t, PRICE.deck0610[1], PRICE.deck0610[0]);
+      } else if (cell === 2.5) {   // секция 2,5 м: 2 щита 1×1 м и 1 щит 0,5×1 м
+        add('deck', 'Настил деревянный 1×1 м', 2 * s * t, PRICE.deck11[1], PRICE.deck11[0]);
+        add('deck05', 'Настил деревянный 0,5×1 м', s * t, PRICE.deck051[1], PRICE.deck051[0]);
+      } else {
+        add('deck', 'Настил деревянный 1×1 м', cell * s * t, PRICE.deck11[1], PRICE.deck11[0]);   // секция 2 или 3 м: щиты по 1 м вдоль секции
+      }
+    } else {
+      // щиты 0,3 м шириной на всю длину секции: 3 на глубину 1 м, 2 на глубину 0,7 м
+      const per = depth < 1 ? 2 : 3;
+      add('deck', `Настил металлический 0,3×${C},0 м`, per * s * t, PRICE.metal[cell][1], PRICE.metal[cell][0]);
+    }
+
+    const jack = p.support !== 'plate';
+    supportItem(add, { support: jack ? 'screw' : 'plate', screwLen: p.screwLen }, 2 * rows);
+    const brackets = wall ? Math.ceil(H * cell * s / (gost ? 12 : 25)) : 0;   // 1 кронштейн на 25 м², по ГОСТ — на 12 м²
+    bracketItem(add, p, 'bracket', brackets);
+    addAnchor(add, p, brackets);
+
+    const { mass, cost, unpriced } = totals(items);
+    return {
+      cost, unpriced,
+      kind: 'frame', capped, h, H, L, t, cell, series: ser, pipe, depth, s, rows, lad, n, support: jack ? 'jack' : 'plate', braces, method: gost ? 'gost' : 'own', deck, deckSet, wall,
+      width: s * cell, area: H * s * cell, items, mass,
+      tiersDrawn: Math.min(t, n)
+    };
+  }
+
+  /** Раскладка стойки из секций 4 и 2 м со смещением стыков. */
+  function postPieces(n, startLong) {
+    const out = [];
+    let left = 2 * n;
+    if (startLong) { if (left >= 4) { out.push(4); left -= 4; } else { out.push(2); left -= 2; } }
+    else { out.push(2); left -= 2; }
+    while (left >= 4) { out.push(4); left -= 4; }
+    if (left > 0) out.push(left);
+    return out;
+  }
+
+  // ---------- Хомутовые леса ЛСПХ: линейные и радиусные ----------
+  // Ориентировочная масса единицы, кг (правится здесь).
+  const KGC = {
+    st2: 7.0, st4: 13.5, sv37: 12.2, sv53: 17.7, pop15: 5.4, pop20: 7.0,
+    simple: 1.5, screw: 4.5, kr: 1.0, hn: 1.2, hp: 1.4, lad: 12.0, deck: 8.0, deckR: 9.0, deckR15: 10.5
+  };
+  const SUPPORT = { simple: 'Опора простая', screw: 'Опора винтовая' };
+
+  /** Раскладка стойки ЛСПХ: до 4 м — одна секция, выше — секции 4 и 2 м со смещением стыков. */
+  function clampPieces(n, startLong) {
+    if (n === 1) return [2];
+    if (n === 2) return [4];
+    return postPieces(n, startLong);
+  }
+  /** Связь вдоль линии длиной len: минимум труб, из них не больше двух по 3,6 м, остальные 5,2 м. */
+  const SHORT = 3.6, LONG = 5.2;   // длины связей ЛСПХ, м
+  function ledgerTubes(len) {
+    for (let k = 1; k < 5000; k++) {
+      for (let a = Math.min(2, k); a >= 0; a--) {
+        const s = a * SHORT + (k - a) * LONG + 0.005 * (k - 1);
+        if (s >= len + 0.66 - 1e-9) return { short: a, long: k - a };
+      }
+    }
+    return { short: 0, long: Math.ceil(len / LONG) };
+  }
+  /** Кронштейны анкера как на pkprom: 1 кронштейн на 25 м² фасада; на схеме — поровну по уровням, остаток сверху. */
+  function anchorCount(area, wall) { return wall ? Math.ceil(area / 25 - 1e-9) : 0; }
+  function spreadLevels(k, n) {
+    const out = [];
+    for (let j = 0; j < n; j++) out.push(Math.floor(k / n) + (j < k % n ? 1 : 0));
+    return out;
+  }
+  function clampCommon(p) {
+    const h = clamp(p.h, 2, MAX_H);
+    const n = Math.max(1, Math.ceil(h / 2));       // подъёмов по 2 м
+    const step = [1.5, 2, 2.5, 3].includes(Number(p.step)) ? Number(p.step) : 3;
+    const support = p.support === 'screw' ? 'screw' : 'simple';
+    const series = CLAMP_SERIES[p.series] ? Number(p.series) : 40;
+    return { h, n, H: 2 * n, step, support, wall: p.wall !== false, series };
+  }
+
+  /** Позиции ЛСПХ общие для линейных и радиусных: названия по серии, цены и вес из прайса. */
+  function clampItems(add, p, c, q) {
+    const S = CLAMP_SERIES[c.series], P = PRICE.clamp[c.series], K = PRICE.clampKg;
+    add('st2', `Стойка 2,0 м ${S}`, q.st2, K.st2, P.st2);
+    add('st4', `Стойка 4,0 м ${S}`, q.st4, K.st4, P.st4);
+    add('sv37', `Связь 3,6 м ${S}`, q.sv37, K.short, P.short);
+    add('sv53', `Связь 5,2 м ${S}`, q.sv53, K.long, P.long);
+    add('pop', `Поперечина ${c.depth === 1.5 ? '2,0' : '1,5'} м ${S}`, q.pop, K.pop, P.pop);
+    add('deck', q.deckName, q.deck, q.deckKg, q.deckPrice);
+    supportItem(add, { support: c.support, screwLen: p.screwLen }, q.op, 'op');
+    bracketItem(add, p, 'kr', q.kr);
+    addAnchor(add, p, q.kr);
+    add('hn', 'Хомут неповоротный', q.hn, K.hn, null);
+    add('hp', 'Хомут поворотный', q.hp, K.hp, null);
+    add('lad', 'Лестница наклонная 2,2 м', q.lad, K.lad, PRICE.ladder);
+  }
+
+  /** Хомутовые леса линейные (фасад). */
+  function calcClamp(p) {
+    const { h, n, H, step, support, wall, series } = clampCommon(p);
+    const depth = Number(p.depth) === 1.5 ? 1.5 : 1.2;
+    const L = Math.min(MAX_L, Math.max(1, Number(p.L) || 1));
+    const minB = Math.ceil(2.5 / step - 1e-9);
+    const bWant = Math.max(minB, Math.round(L / step));
+    const bMax = Math.max(1, Math.floor(MAX_AREA / (H * step) + 1e-9));
+    const b = Math.min(bWant, bMax), capped = bWant > bMax;
+    const cols = b + 1, len = b * step;
+    const t = Math.min(clamp(p.t, 0, 100), n);                  // ярусов настила
+    const lad = Math.min(clamp(p.l, 0, 200), b);                 // подъёмов (лестниц)
+    const f = 0, rails = 0, F = 0;                               // ограждения не считаются
+    const lines = 2 * (n + 1) + F;
+    const tubes = ledgerTubes(len);
+    const g = step >= 2.5 ? 3 : 4;
+    const dpos = n < 2 ? 0 : (b < g ? 1 : Math.max(2, Math.floor((b - 1) / g) + 1));   // мест диагоналей вдоль фасада
+    const dper = n < 2 ? 0 : Math.max(1, Math.floor((n - 1) / 2));                     // диагоналей по высоте
+    const diag = dpos * dper;
+
+    let st4 = 0, st2 = 0;
+    for (let c = 0; c < cols; c++) for (let d = 0; d < 2; d++)
+      for (const x of clampPieces(n, (c + d) % 2 === 0)) (x === 4 ? st4++ : st2++);
+    const kr = anchorCount(H * len, wall), krLv = spreadLevels(kr, n);
+    const deckPer = Math.round(step * 2);
+
+    const items = [];
+    const add = makeAdd(items);
+    // щиты 0,5 м шириной поперёк лесов, длиной на глубину: 0,5×1,2 или 0,5×1,5 м
+    const dk = depth === 1.5 ? PRICE.deck0515 : PRICE.deck0512;
+    clampItems(add, p, { series, depth, support }, {
+      st2, st4, sv37: tubes.short * lines, sv53: tubes.long * lines + diag, pop: (n + 1) * cols + 2 * F,
+      deckName: depth === 1.5 ? 'Настил деревянный 0,5×1,5 м' : 'Настил деревянный 0,5×1,2 м', deck: t * b * deckPer, deckKg: dk[1], deckPrice: dk[0],
+      op: 2 * cols, kr, hn: 4 * (n + 1) * cols + 8 * F, hp: 3 * diag, lad: (n - 1) * lad
+    });
+
+    const { mass, cost, unpriced } = totals(items);
+    return {
+      cost, unpriced, series,
+      kind: 'clamp', capped, h, H, n, L, step, depth, b, cols, t, lad, f, rails, F, tubes, dpos, dper, krLv, deckPer, support, wall,
+      width: len, area: H * len, items, mass, tiersDrawn: t
+    };
+  }
+
+  /** Хомутовые леса радиусные (вокруг резервуара): многогранник по наружному кольцу стоек. */
+  function calcRadius(p) {
+    const { h, n, H, step, support, wall, series } = clampCommon(p);
+    const depth = Number(p.depth) === 1.5 ? 1.5 : 1.0;
+    const D = Math.min(60, Math.max(3, Math.round((Number(p.D) || 12) * 10) / 10));   // внутренний диаметр
+    const R = D / 2 + depth;                                                        // радиус наружного кольца
+    const N = Math.max(3, Math.ceil(Math.PI / Math.asin(Math.min(1, step / (2 * R))) - 1e-9));   // граней
+    const sOut = 2 * R * Math.sin(Math.PI / N), sIn = D * Math.sin(Math.PI / N);
+    const t = Math.min(clamp(p.t, 0, 2), n - 1);
+    const lad = clamp(p.l, 0, 2);
+    const f = 0, rails = 0, F = 0;                               // ограждения не считаются
+    const dpos = Math.ceil(N / 2), dper = n < 2 ? 0 : Math.floor(n / 2), diag = dpos * dper;
+    const deckW = depth === 1.5 ? 0.5 : 1.0;                    // глубина 1,0 м — щиты 1,0×1,0; 1,5 м — щиты 0,5×1,5
+    const deckPer = Math.max(1, Math.floor(sIn / deckW + 1e-9));   // на узкой грани — хотя бы один щит
+
+    let st4 = 0, st2 = 0;
+    for (let i = 0; i < N; i++) for (let d = 0; d < 2; d++)
+      for (const x of clampPieces(n, (i + d) % 2 === 0)) (x === 4 ? st4++ : st2++);
+    const kr = anchorCount(N * sOut * H, wall), krLv = spreadLevels(kr, n);
+
+    const items = [];
+    const add = makeAdd(items);
+    const dk = depth === 1.5 ? PRICE.deck0515 : PRICE.deck11;
+    clampItems(add, p, { series, depth, support }, {
+      st2, st4, sv37: (2 * (n + 1) + F) * N, sv53: diag, pop: (n + 1) * N,
+      deckName: depth === 1.5 ? 'Настил деревянный 0,5×1,5 м' : 'Настил деревянный 1×1 м', deck: t * N * deckPer, deckKg: dk[1], deckPrice: dk[0],
+      op: 2 * N, kr, hn: 6 * (n + 1) * N, hp: 3 * diag, lad: (n - 1) * lad
+    });
+
+    const { mass, cost, unpriced } = totals(items);
+    return {
+      cost, unpriced, series,
+      kind: 'radius', h, H, n, D, R, N, sOut, sIn, step, depth, t, lad, f, rails, F, dpos, dper, krLv, deckPer, deckW, support, wall,
+      width: 2 * R, perimeter: N * sOut, area: Math.round(N * sOut * H * 10) / 10, items, mass, tiersDrawn: t
+    };
+  }
+
+  const api = { calcFrame, calcClamp, calcRadius, postPieces, clampPieces, ledgerTubes, SHORT, LONG, fmt1 };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.Calc = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var state={
+  kind:'frame',
+  frame:{h:10,L:12,t:2,l:2,cell:3,series:30,method:'own',support:'jack',screwLen:350,braces:1,deckSet:'full',deck:'wood',wall:true,brLen:270,anchor:'none'},
+  clamp:{h:6,L:12,t:0,l:1,series:40,step:3,depth:1.2,support:'simple',screwLen:350,wall:true,brLen:270,anchor:'none'},
+  radius:{h:6,D:12,t:1,l:2,series:40,step:3,depth:1,support:'simple',screwLen:350,wall:true,brLen:270,anchor:'none'}
+};
+var model=null;
+
+/* ---------- панель параметров ---------- */
+var DIMSET={
+  frame:[
+    {k:'h',label:'Высота',unit:'м',min:2,max:100},
+    {k:'L',label:'Длина',unit:'м',min:1,max:10000,dec:.5},
+    {k:'t',label:'Ярусов настилов',unit:'шт',min:0,max:100},
+    {k:'l',label:'Подъёмов',unit:'шт',min:1,max:200}],
+  clamp:[
+    {k:'h',label:'Высота фасада',unit:'м',min:2,max:100},
+    {k:'L',label:'Длина фасада',unit:'м',min:1,max:10000,dec:.5},
+    {k:'t',label:'Ярусов настила',unit:'шт',min:0,max:100},
+    {k:'l',label:'Подъёмов',unit:'шт',min:0,max:200}],
+  radius:[
+    {k:'h',label:'Высота лесов',unit:'м',min:2,max:100},
+    {k:'D',label:'Внутренний диаметр',unit:'м',min:3,max:60,dec:.1,btn:1},
+    {k:'t',label:'Ярусов настила',unit:'шт',min:0,max:2},
+    {k:'l',label:'Подъёмов',unit:'шт',min:0,max:2}]
+};
+var DIMS=DIMSET.frame;
+function buildDims(){
+  var box=$('#dims'); box.innerHTML=''; DIMS=DIMSET[state.kind];
+  DIMS.forEach(function(d){
+    var f=document.createElement('div'); f.className='field';
+    f.innerHTML='<label for="in-'+d.k+'">'+d.label+'</label><div class="step"><button type="button" data-d="-1" aria-label="Меньше">−</button><input id="in-'+d.k+'" inputmode="numeric" autocomplete="off"><button type="button" data-d="1" aria-label="Больше">+</button></div><small id="hint-'+d.k+'"></small>';
+    box.appendChild(f);
+    var inp=f.querySelector('input');
+    function commit(v){
+      v=Number(String(v).replace(',','.')); v=d.dec?Math.round(v/d.dec)*d.dec:Math.round(v); v=Math.round(v*10)/10;
+      if(!isFinite(v)) v=state[state.kind][d.k];
+      v=Math.min(d.max,Math.max(d.min,v));
+      state[state.kind][d.k]=v; update();
+    }
+    f.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var step=d.btn||((d.k==='L')?(state.kind==='frame'?state.frame.cell:state[state.kind].step):1);
+        commit(state[state.kind][d.k]+Number(b.dataset.d)*step);
+      });
+    });
+    inp.addEventListener('change',function(){commit(inp.value)});
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){commit(inp.value);inp.blur()}});
+  });
+}
+var OPTS={
+  frame:[
+    {k:'method',label:'Вид расчёта',v:[['own','Стандартный'],['gost','По ГОСТ']]},
+    {k:'series',label:'Серия лесов (труба рамы)',v:[[20,'20 · 42×1,2 · 0,7 м'],[30,'30 · 42×1,2'],[40,'40 · 42×1,5'],[60,'60 · 48×2'],[100,'100 · 48×2,5']],num:true},
+    {k:'cell',label:'Ширина секции',v:[[3,'3 м'],[2.5,'2,5 м'],[2,'2 м']],num:true},
+    {k:'braces',label:'Связи',v:[[1,'1 диагональ + 1 горизонталь на секцию'],[3,'1 диагональ + 2 горизонтали на секцию']],num:true},
+    {k:'deckSet',label:'Комплектация ярусов',v:[['full','С ригелями и настилами'],['rigel','С ригелями без настилов'],['none','Без ригелей и настилов']]},
+    {k:'deck',label:'Настил',v:[['wood','Деревянный'],['metal','Металлический']]},
+    {k:'support',label:'Опоры',v:[['jack','Винтовые'],['plate','Простые']]},
+    {k:'screwLen',label:'Длина винтовой опоры',v:[[250,'250 мм'],[350,'350 мм'],[500,'500 мм'],[750,'750 мм']],num:true},
+    {k:'wall',label:'Крепление к стене',v:[[true,'Кронштейн'],[false,'Без крепления']],bool:true},
+    {k:'brLen',label:'Длина кронштейна',v:[[270,'270 мм'],[400,'400 мм'],[500,'500 мм'],[600,'600 мм']],num:true},
+    {k:'anchor',label:'Крепёж кронштейна к стене',v:[['none','Нет'],['bolt','Болт анкерный 10×100'],['dowel','Дюбель с шурупом 10×80'],['nut','Болт анкерный с гайкой 10×97']]},
+  ],
+  clamp:[
+    {k:'series',label:'Серия лесов',v:[[40,'ЛСПХ 40'],[60,'ЛСПХ 60'],[100,'ЛСПХ 100']],num:true},
+    {k:'step',label:'Шаг стоек',v:[[1.5,'1,5 м'],[2,'2 м'],[2.5,'2,5 м'],[3,'3 м']],num:true},
+    {k:'depth',label:'Глубина лесов',v:[[1.2,'1,2 м'],[1.5,'1,5 м']],num:true},
+    {k:'support',label:'Опоры',v:[['screw','Винтовые'],['simple','Простые']]},
+    {k:'screwLen',label:'Длина винтовой опоры',v:[[250,'250 мм'],[350,'350 мм'],[500,'500 мм'],[750,'750 мм']],num:true},
+    {k:'wall',label:'Сборка',v:[[true,'С кронштейнами'],[false,'Без кронштейнов']],bool:true},
+    {k:'brLen',label:'Длина кронштейна',v:[[270,'270 мм'],[400,'400 мм'],[500,'500 мм'],[600,'600 мм']],num:true},
+    {k:'anchor',label:'Крепёж кронштейна к стене',v:[['none','Нет'],['bolt','Болт анкерный 10×100'],['dowel','Дюбель с шурупом 10×80'],['nut','Болт анкерный с гайкой 10×97']]}
+  ],
+  radius:[
+    {k:'series',label:'Серия лесов',v:[[40,'ЛСПХ 40'],[60,'ЛСПХ 60'],[100,'ЛСПХ 100']],num:true},
+    {k:'step',label:'Желаемый шаг стоек',v:[[1.5,'1,5 м'],[2,'2 м'],[2.5,'2,5 м'],[3,'3 м']],num:true},
+    {k:'depth',label:'Глубина лесов',v:[[1,'1,0 м'],[1.5,'1,5 м']],num:true},
+    {k:'support',label:'Опоры',v:[['screw','Винтовые'],['simple','Простые']]},
+    {k:'screwLen',label:'Длина винтовой опоры',v:[[250,'250 мм'],[350,'350 мм'],[500,'500 мм'],[750,'750 мм']],num:true},
+    {k:'wall',label:'Сборка',v:[[true,'С кронштейнами'],[false,'Без кронштейнов']],bool:true},
+    {k:'brLen',label:'Длина кронштейна',v:[[270,'270 мм'],[400,'400 мм'],[500,'500 мм'],[600,'600 мм']],num:true},
+    {k:'anchor',label:'Крепёж кронштейна',v:[['none','Нет'],['bolt','Болт анкерный 10×100'],['dowel','Дюбель с шурупом 10×80'],['nut','Болт анкерный с гайкой 10×97']]}
+  ]
+};
+function buildOpts(){
+  var box=$('#opts'); box.innerHTML='';
+  OPTS[state.kind].forEach(function(o){
+    var d=document.createElement('div'); d.className='opt';
+    var h='<span>'+o.label+'</span><div class="seg" role="radiogroup">';
+    o.v.forEach(function(v,i){
+      h+='<label><input type="radio" name="o-'+o.k+'" value="'+i+'"><span>'+v[1]+'</span></label>';
+    });
+    d.innerHTML=h+'</div>'; box.appendChild(d);
+    d.querySelectorAll('input').forEach(function(inp){
+      inp.addEventListener('change',function(){
+        state[state.kind][o.k]=o.v[Number(inp.value)][0];
+        if(o.k==='cell'){ /* длина привязана к ячейке, ничего не пересчитываем */ }
+        update();
+      });
+    });
+  });
+}
+function syncControls(){
+  var st=state[state.kind];
+  DIMS.forEach(function(d){
+    var el=$('#in-'+d.k); if(el!==document.activeElement) el.value=String(st[d.k]).replace('.',',');
+  });
+  OPTS[state.kind].forEach(function(o){
+    var idx=0; o.v.forEach(function(v,i){if(v[0]===st[o.k]) idx=i});
+    document.querySelectorAll('input[name="o-'+o.k+'"]').forEach(function(inp){inp.checked=(Number(inp.value)===idx)});
+  });
+  document.querySelectorAll('input[name="o-braces"]').forEach(function(i){i.disabled=(st.method==='gost')});
+  document.querySelectorAll('input[name="o-anchor"],input[name="o-brLen"]').forEach(function(i){i.disabled=(st.wall===false)});
+  document.querySelectorAll('input[name="o-screwLen"]').forEach(function(i){i.disabled=!(st.support==='jack'||st.support==='screw')});
+  var met=document.querySelector('input[name="o-deck"][value="1"]');
+  if(state.kind==='frame'){ var noDeck=st.deckSet&&st.deckSet!=='full'; document.querySelectorAll('input[name="o-deck"]').forEach(function(i){i.disabled=noDeck||(i.value==='1'&&st.cell===2.5)}); }
+  if(met){ met.disabled=met.disabled||(st.cell===2.5); met.parentNode.title=st.cell===2.5?'Секция 2,5 м металлическими щитами не комплектуется':''; }
+  if(state.kind==='frame'){ document.querySelectorAll('input[name="o-deck"]').forEach(function(i){i.checked=(i.value==='1')===(model.deck==='metal')}); }
+}
+
+/* ---------- расчёт и вывод ---------- */
+var fmtN=function(x){return new Intl.NumberFormat('ru-RU').format(x)};
+var fmtM=function(x){return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1}).format(x)};
+var fmtR=function(x){return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(x)};
+var fmtR0=function(x){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(x))};
+var NOPRICE='по запросу';
+var GROUPCOL={frame:'--c1',frameL:'--c2',frameE:'--c6',half:'--c1',halfpost:'--c1',diag:'--c3',horiz:'--c4',rigel:'--c4',rigelX:'--c4',deck:'--c5',deck05:'--c2',base:'--c7',bracket:'--c6',stab:'--c6',
+  st4:'--c1',st2:'--c6',sv:'--c4',pop:'--c4',hn:'--c7',hp:'--c7',lad:'--c2',kr:'--c6',pod:'--c7',anchor:'--c3',sv37:'--c8',sv53:'--c3',op:'--c7',tank:'--wall'};
+
+function update(){
+  var st=state[state.kind];
+  model=state.kind==='frame'?Calc.calcFrame(st):state.kind==='clamp'?Calc.calcClamp(st):Calc.calcRadius(st);
+  st.t=model.t; if(model.kind!=='frame'){st.l=model.lad;} if(model.kind==='radius') st.D=model.D;   // лишние ярусы срезаются до числа уровней
+  if(model.capped) st.L=model.width;   // длина срезается по пределу площади
+  // подсказки под полями
+  var m=model;
+  var hh=$('#hint-h'), hl=$('#hint-L')||$('#hint-D'), ht=$('#hint-t'), hs=$('#hint-l'), hf=$('#hint-f');
+  if(m.kind==='frame'){
+    hh.textContent=m.n+' '+plural(m.n,['уровень','уровня','уровней'])+' по 2 м = '+m.H+' м'+(m.H>m.h?' (округлено вверх)':'');
+    hl.textContent=m.s+' '+plural(m.s,['секция','секции','секций'])+' по '+dec(m.cell)+' м = '+dec(m.width)+' м'+(m.capped?' (предел 100 000 м²)':'');
+    ht.textContent=m.deckSet==='none'?'без ригелей и настилов':m.deckSet==='rigel'?'с ригелями без настилов; максимум '+m.n:'максимум '+m.n+' по числу уровней';
+    hs.textContent=(st.l>m.rows?'максимум '+m.rows:'лестничных рядов: '+m.lad);
+  } else if(m.kind==='clamp'){
+    hh.textContent=m.n+' '+plural(m.n,['ярус','яруса','ярусов'])+' по 2 м = '+m.H+' м';
+    hl.textContent=m.b+' '+plural(m.b,['пролёт','пролёта','пролётов'])+' по '+dec(m.step)+' м = '+dec(m.width)+' м'+(m.capped?' (предел 100 000 м²)':'');
+    ht.textContent='максимум '+m.n;
+    hs.textContent='максимум '+m.b+' по числу пролётов';
+  } else {
+    hh.textContent=m.n+' '+plural(m.n,['ярус','яруса','ярусов'])+' по 2 м = '+m.H+' м';
+    hl.textContent=m.N+' '+plural(m.N,['грань','грани','граней'])+', шаг '+m.sOut.toFixed(2).replace('.',',')+' м по наружному кольцу';
+    ht.textContent='максимум '+Math.min(2,m.n-1);
+    hs.textContent='наклонных лестниц: '+(m.n-1)+' на подъём';
+  }
+  syncControls();
+  $('#note').textContent=m.kind==='frame'
+    ?'По ГОСТ: диагонали в шахматном порядке, горизонтали с двух сторон на каждом уровне и ряд по верху, кронштейн на каждые 12 м². Рамы 2 м по высоте, глубина 1 м (серия 20 — 0,7 м), секция 2, 2,5 или 3 м. Серия задаёт трубу рамы и настил. Высота округляется вверх до целого числа рам. Опоры ставятся под каждую стойку. Масса ориентировочная.'
+    :m.kind==='clamp'?'Кронштейны анкера — 1 на 25 м² фасада (как на pkprom), можно собрать без кронштейнов. Расчёт остального как в калькуляторе ЛСПХ: стойки 2 и 4 м со смещением стыков, связи по длине фасада из труб 3,6 и 5,2 м, поперечины и хомуты в каждом узле, диагонали через 3–4 пролёта. Масса ориентировочная.'
+    :'Леса вокруг резервуара — многогранник: число граней подбирается так, чтобы шаг наружных стоек не превышал заданный. Связи 3,6 м на каждой грани по обоим кольцам, диагонали через грань. Кронштейны анкера — 1 на 25 м² по наружному кольцу, можно собрать без кронштейнов. Настил: при глубине 1,0 м — щиты 1,0×1,0 м, при 1,5 м — 0,5×1,5 м, столько, сколько помещается по внутренней грани. Масса ориентировочная.';
+  // факты
+  var area=m.area, w=m.width, hTotal=m.H;
+  $('#facts').innerHTML=(m.kind==='radius'
+    ? fact('Ø'+dec(m.D)+' × '+hTotal,'внутр. диаметр × высота, м')+fact(m.N+' · '+m.sOut.toFixed(2).replace('.',','),'граней · шаг, м')
+    : fact(dec(w)+' × '+hTotal,'длина × высота, м')+fact(fmtN(area),'площадь фасада, м²'))+
+    fact(fmtR0(m.cost)+' ₽','стоимость'+(m.unpriced.length?' без позиций по запросу':''))+
+    fact(fmtN(Math.round(m.mass)),'масса, кг');
+  $('#badge').textContent=m.kind==='frame'?('ЛРСП '+m.series+' · '+m.s+' '+plural(m.s,['секция','секции','секций'])+' по '+dec(m.cell)+' м'):m.kind==='clamp'?('Хомутовые ЛСПХ '+m.series+' · '+m.b+' '+plural(m.b,['пролёт','пролёта','пролётов'])):('Радиусные ЛСПХ '+m.series+' · '+m.N+' '+plural(m.N,['грань','грани','граней']));
+  // таблица
+  var css=getComputedStyle(document.documentElement);
+  $('#rows').innerHTML=m.items.map(function(i){
+    var col=css.getPropertyValue(GROUPCOL[i.id]||'--c4').trim();
+    return '<tr data-id="'+i.id+'"><td><span class="sw" style="background:'+col+'"></span>'+i.name+'</td><td class="n">'+fmtN(i.qty)+'</td><td class="n">'+(i.price==null?'<span class="np">'+NOPRICE+'</span>':fmtR(i.price))+'</td><td class="n">'+(i.cost==null?'—':fmtR(i.cost))+'</td><td class="n">'+fmtM(i.kg)+'</td></tr>';
+  }).join('');
+  $('#foot').innerHTML='<tr><td>Итого</td><td class="n">'+fmtN(m.items.reduce(function(a,i){return a+i.qty},0))+'</td><td></td><td class="n">'+fmtR(m.cost)+'</td><td class="n">'+fmtM(m.mass)+'</td></tr>'+
+    '<tr class="sub"><td colspan="5">'+(m.area?'За 1 м² фасада: '+fmtR(m.cost/m.area)+' ₽ · ':'')+'Цены с НДС по прайсу от 17.08.2026'+(m.unpriced.length?'. Не вошли в сумму (цена по запросу): '+m.unpriced.join(', ').toLowerCase():'')+'</td></tr>';
+  document.querySelectorAll('#rows tr').forEach(function(tr){
+    tr.addEventListener('mouseenter',function(){View.hover(tr.dataset.id)});
+    tr.addEventListener('mouseleave',function(){View.hover(null)});
+    tr.addEventListener('click',function(){UI.select(UI.sel===tr.dataset.id?null:tr.dataset.id)});
+  });
+  var scn=buildScene(m); View.set(scn,m);
+  var fr=$('#frag');
+  if(scn.fragment){ var f=scn.fragment; fr.hidden=false; fr.textContent=m.kind==='radius'?('На схеме сектор: '+f.shown+' из '+f.total+' граней. Расчёт — на всё кольцо.'):('На схеме фрагмент: '+f.shown+' из '+f.total+' '+(m.kind==='frame'?'секций':'пролётов')+' ('+dec(f.width)+' м из '+dec(f.full)+' м). Расчёт — на всю длину.'); }
+  else fr.hidden=true;
+  UI.refresh();
+}
+function dec(x){return String(Math.round(x*100)/100).replace('.',',')}
+function fact(v,l){return '<div class="fact"><b>'+v+'</b><span>'+l+'</span></div>'}
+function plural(n,f){var a=Math.abs(n)%100,b=a%10;return a>10&&a<20?f[2]:b>1&&b<5?f[1]:b===1?f[0]:f[2]}
+
+/* ---------- геометрия сцены (метры, X вдоль фасада, Y вверх, Z вглубь) ---------- */
+function Scene(){this.bars=[];this.quads=[];this.lines=[]}
+Scene.prototype.bar=function(a,b,r,g){this.bars.push({a:a,b:b,r:r,g:g})};
+Scene.prototype.box=function(cx,cy,cz,sx,sy,sz,g){
+  var x0=cx-sx/2,x1=cx+sx/2,y0=cy-sy/2,y1=cy+sy/2,z0=cz-sz/2,z1=cz+sz/2;
+  var F=[
+   [[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1],[0,1,0]],
+   [[x0,y0,z0],[x0,y0,z1],[x1,y0,z1],[x1,y0,z0],[0,-1,0]],
+   [[x0,y0,z1],[x0,y1,z1],[x1,y1,z1],[x1,y0,z1],[0,0,1]],
+   [[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z0],[0,0,-1]],
+   [[x1,y0,z1],[x1,y1,z1],[x1,y1,z0],[x1,y0,z0],[1,0,0]],
+   [[x0,y0,z0],[x0,y1,z0],[x0,y1,z1],[x0,y0,z1],[-1,0,0]]];
+  for(var i=0;i<6;i++){var f=F[i];this.quads.push({p:[f[0],f[1],f[2],f[3]],n:f[4],g:g})}
+};
+
+// повёрнутый в плане брусок: c — центр, u и v — единичные горизонтальные оси
+Scene.prototype.obox=function(c,u,v,su,sy,sv,g){
+  var self=this,y=[0,1,0];
+  function P(a,b,d){return [c[0]+u[0]*a*su/2+v[0]*d*sv/2, c[1]+b*sy/2, c[2]+u[2]*a*su/2+v[2]*d*sv/2]}
+  [[y,[[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1]]],[[0,-1,0],[[-1,-1,-1],[-1,-1,1],[1,-1,1],[1,-1,-1]]],
+   [v,[[-1,-1,1],[-1,1,1],[1,1,1],[1,-1,1]]],[[-v[0],0,-v[2]],[[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,-1]]],
+   [u,[[1,-1,1],[1,1,1],[1,1,-1],[1,-1,-1]]],[[-u[0],0,-u[2]],[[-1,-1,-1],[-1,1,-1],[-1,1,1],[-1,-1,1]]]].forEach(function(f){
+    self.quads.push({p:f[1].map(function(q){return P(q[0],q[1],q[2])}),n:f[0],g:g});
+  });
+};
+function spread(count,len){ // count позиций среди len мест, с краёв
+  var s={}; if(count<=0) return s; if(count===1){s[0]=1;return s}
+  for(var i=0;i<count;i++) s[Math.round(i*(len-1)/(count-1))]=1; return s;
+}
+function ladderRows(rows,lad){
+  // 1 подъём — лестница с краю; 2 — по обоим краям; больше — равномерно, начиная с краёв
+  var set={};
+  if(lad<=1){set[0]=1;return set}
+  for(var i=0;i<lad;i++){set[Math.round(i*(rows-1)/(lad-1))]=1}
+  return set;
+}
+function ties(sc,m,n,zBack,xs,hTop){
+  var K=m.items.filter(function(i){return i.id==='bracket'||i.id==='kr'})[0];
+  if(!K) return;
+  var id=K.id, q=K.qty;
+  for(var i=0;i<q;i++){
+    var y=Math.max(1,(i+1)/(q+1)*hTop);
+    var xi=xs[Math.min(xs.length-1,Math.round((((i*0.618)%1))*(xs.length-1)))];
+    sc.bar([xi,y,zBack],[xi,y,zBack-.4],.03,id);
+    sc.box(xi,y,zBack-.42,.12,.12,.04,id);
+    if(m.items.some(function(t){return t.id==='anchor'})) sc.box(xi,y,zBack-.46,.04,.04,.06,'anchor');
+  }
+}
+function buildFrame(m){
+  var sc=new Scene(), bl=m.cell, s=m.s, rows=m.rows, n=m.n, h=m.h, zf=m.depth/2, zb=-m.depth/2;
+  var xs=[];for(var i=0;i<rows;i++)xs.push(i*bl);
+  var lr=ladderRows(rows,m.lad), endRow=-1;
+  for(var k=0;k<n;k++){
+    var y0=2*k,y1=2*k+2;
+    for(var i2=0;i2<rows;i2++){
+      var x=xs[i2], g=lr[i2]?'frameL':(i2===endRow?'frameE':'frame');
+      sc.bar([x,y0,zb],[x,y1,zb],.026,g); sc.bar([x,y0,zf],[x,y1,zf],.026,g);
+      sc.bar([x,y1-.05,zb],[x,y1-.05,zf],.02,g); sc.bar([x,y0+.25,zb],[x,y0+.25,zf],.02,g);
+      if(lr[i2]){ for(var r=1;r<7;r++){var yy=y0+.25+r*.24; if(yy<y1-.12) sc.bar([x,yy,zb],[x,yy,zf],.011,g)} }
+      else if(g==='frameE'){ sc.bar([x,y0+.25,zb],[x,y1-.05,zf],.014,g) }
+    }
+  }
+  for(var k3=0;k3<n;k3++) for(var j2=0;j2<s;j2++){
+    var yh=2*k3+1, xa=xs[j2], xb=xs[j2+1], zd=zf+.03;
+    var gost=m.method==='gost';
+    var hasDiag=gost?(j2+k3)%2===0:(m.braces!==2||(j2+k3)%2===0), hasHoriz=gost||m.braces!==2||(j2+k3)%2===1;
+    if(hasHoriz) sc.bar([xa,yh,zf+.01],[xb,yh,zf+.01],.02,'horiz');           // горизонталь снаружи, на середине уровня
+    if(gost&&k3===n-1) sc.bar([xa,m.H-.02,zf+.01],[xb,m.H-.02,zf+.01],.02,'horiz');   // верхний ряд по ГОСТ
+    if(m.braces===3||gost) sc.bar([xa,yh,zb-.01],[xb,yh,zb-.01],.02,'horiz');        // вторая — с другой стороны
+    if(hasDiag){
+      var ya=2*k3+.25, yb2=2*k3+1.95;
+      sc.bar([xa,ya,zd],[xb,yb2,zd],.017,'diag'); sc.bar([xb,ya,zd+.02],[xa,yb2,zd+.02],.017,'diag');
+      sc.box((xa+xb)/2,(ya+yb2)/2,zd+.01,.07,.07,.07,'diag');
+    }
+  }
+  var td=m.tiersDrawn;
+  for(var tj=0;tj<td;tj++){
+    var yt=2*tj+.3, rg='rigel';   // ярусы снизу вверх, первый — у опор
+    for(var j3=0;j3<s;j3++){
+      var xa=xs[j3], xb=xs[j3+1];
+      if(m.deckSet==='none'){
+        // просто рамы — на ярусе ничего
+      } else if(m.deckSet==='rigel'){
+        sc.bar([xa,yt-.05,zb+.1],[xb,yt-.05,zb+.1],.03,rg); sc.bar([xa,yt-.05,zf-.1],[xb,yt-.05,zf-.1],.03,rg);   // ригель с отступом 10 см от края рамы
+      } else if(m.deck==='wood'){
+        sc.bar([xa,yt-.05,zb+.1],[xb,yt-.05,zb+.1],.03,rg); sc.bar([xa,yt-.05,zf-.1],[xb,yt-.05,zf-.1],.03,rg);   // ригель с отступом 10 см от края рамы
+        if(m.depth<1){
+          for(var c0=0;c0<Math.floor(bl);c0++) sc.box(xa+c0+.5,yt,0,.97,.04,.6,'deck');
+        } else if(bl===2.5){
+          [[0,1,'deck'],[1,1,'deck'],[2,.5,'deck05']].forEach(function(d){sc.box(xa+d[0]+d[1]/2,yt,0,d[1]-.03,.04,.96,d[2])});
+        } else {
+          for(var c=0;c<bl;c++) sc.box(xa+c+.5,yt,0,.97,.04,.95,'deck');
+        }
+      } else {
+        (m.depth<1?[-.16,.16]:[-.32,0,.32]).forEach(function(zz){sc.box((xa+xb)/2,yt,zz,bl*.98,.04,.29,'deck')});
+        sc.bar([xa,yt-.05,zb],[xb,yt-.05,zb],.012,'horiz'); sc.bar([xa,yt-.05,zf],[xb,yt-.05,zf],.012,'horiz');
+      }
+    }
+  }
+  for(var i4=0;i4<rows;i4++){
+    [zb,zf].forEach(function(zz){
+      sc.box(xs[i4],.02,zz,.18,.04,.18,'base');
+      if(m.support==='jack'){ sc.bar([xs[i4],.04,zz],[xs[i4],.3,zz],.022,'base'); sc.box(xs[i4],.24,zz,.12,.04,.07,'base') }
+    });
+  }
+  if(m.wall) ties(sc,m,n,zb,xs,m.H);
+  sc.W=m.width; sc.H=m.H; sc.zFront=zf; sc.zBack=zb; sc.wallZ=m.wall?zb-.45:null;
+  return sc;
+}
+function supports(sc,m,x,z){
+  sc.box(x,.02,z,.16,.04,.16,'op');
+  if(m.support==='screw'){ sc.bar([x,.04,z],[x,.3,z],.02,'op'); sc.box(x,.26,z,.11,.04,.08,'op') }
+}
+function inclinedLadders(sc,A,B,yk,n,k0){ // наклонные лестницы между точками A и B (в плане) по подъёмам
+  for(var k=0;k<n-1;k++){
+    var y0=yk(k+k0), y1=yk(k+k0+1), f=k%2===1;
+    var P0=f?B:A, P1=f?A:B, nx=-(P1[2]-P0[2]), nz=(P1[0]-P0[0]), nl=Math.hypot(nx,nz)||1; nx=nx/nl*.22; nz=nz/nl*.22;
+    var a0=[P0[0]+nx,y0,P0[2]+nz], a1=[P1[0]+nx,y1,P1[2]+nz], b0=[P0[0]-nx,y0,P0[2]-nz], b1=[P1[0]-nx,y1,P1[2]-nz];
+    sc.bar(a0,a1,.016,'lad'); sc.bar(b0,b1,.016,'lad');
+    for(var r=1;r<8;r++){var t=r/8; sc.bar([a0[0]+(a1[0]-a0[0])*t,y0+(y1-y0)*t,a0[2]+(a1[2]-a0[2])*t],[b0[0]+(b1[0]-b0[0])*t,y0+(y1-y0)*t,b0[2]+(b1[2]-b0[2])*t],.01,'lad')}
+  }
+}
+function buildClamp(m){
+  var sc=new Scene(), b=m.b, cols=m.cols, n=m.n, st=m.step, zf=m.depth/2, zb=-m.depth/2;
+  var xs=[];for(var i=0;i<cols;i++)xs.push(i*st);
+  var yk=function(k){return k===0?.2:2*k};
+  for(var c=0;c<cols;c++) for(var d=0;d<2;d++){
+    var z=d===0?zb:zf, y=0, pcs=Calc.clampPieces(n,(c+d)%2===0);
+    for(var q=0;q<pcs.length;q++){ sc.bar([xs[c],y,z],[xs[c],y+pcs[q],z],.028,pcs[q]===4?'st4':'st2'); y+=pcs[q] }
+    supports(sc,m,xs[c],z);
+  }
+  // связи по длине: группа по трубе, которая перекрывает середину пролёта
+  // связи по длине — настоящими трубами: 3,6 м по краям, 5,2 м между ними, стыки внахлёст
+  var seq=[]; if(m.tubes.short>0) seq.push(Calc.SHORT); for(var a=0;a<m.tubes.long;a++) seq.push(Calc.LONG); if(m.tubes.short>1) seq.push(Calc.SHORT);
+  var sumT=seq.reduce(function(s,x){return s+x},0), lenL=m.lineLen||m.width, cut=m.width, ov=seq.length>1?Math.max(0,(sumT-lenL-.6)/(seq.length-1)):0;
+  var starts=[], x0=seq.length>1?-.3:(lenL-sumT)/2; seq.forEach(function(t){starts.push(x0); x0+=t-ov});
+  function line(y,z){ seq.forEach(function(t,i){ var a=starts[i], e=starts[i]+t; if(a>cut+.3) return; e=Math.min(e,lenL>cut?cut+.3:e);   // во фрагменте — обрезка по краю
+      var dz=(i%2?.035:-.035)*(z>0?1:-1); sc.bar([a,y,z+dz],[e,y,z+dz],.024,t===Calc.SHORT?'sv37':'sv53') }) }
+  for(var k=0;k<=n;k++){
+    var y2=yk(k); line(y2,zf); line(y2,zb);
+    for(var c2=0;c2<cols;c2++){
+      sc.bar([xs[c2],y2+.05,zb],[xs[c2],y2+.05,zf],.02,'pop');
+      sc.box(xs[c2],y2,zb,.09,.09,.09,'hn'); sc.box(xs[c2],y2,zf,.09,.09,.09,'hn');
+    }
+  }
+  // диагонали
+  var dp=spread(m.dpos,b);
+  Object.keys(dp).forEach(function(js){var j=+js;
+    for(var i2=0;i2<m.dper;i2++){
+      var fl=(i2%2===1), ya=Math.min(4*i2,2*n-.01), yb2=Math.min(4*i2+4,2*n);
+      var A=[xs[fl?j+1:j],ya,zf+.05], B=[xs[fl?j:j+1],yb2,zf+.05], M=[(A[0]+B[0])/2,(ya+yb2)/2,zf+.05];
+      sc.bar(A,B,.018,'sv53'); [A,B,M].forEach(function(P){sc.box(P[0],P[1],P[2],.08,.08,.08,'hp')});
+    }
+  });
+  // настил: ярусы снизу вверх
+  for(var tj=0;tj<m.t;tj++){
+    var yt=yk(tj)+.05, w=st/m.deckPer;
+    for(var j3=0;j3<b;j3++) for(var q2=0;q2<m.deckPer;q2++) sc.box(xs[j3]+w*(q2+.5),yt,0,w*.94,.04,m.depth*.92,'deck');
+  }
+  // наклонные лестницы
+  var lc=spread(m.lad,b), lkeys=Object.keys(lc);
+  lkeys.forEach(function(js){var j=+js; inclinedLadders(sc,[xs[j]+.25,0,0],[xs[j+1]-.25,0,0],yk,n,0)});
+  // кронштейны анкера по уровням сверху вниз
+  var hasAnchor=m.items.some(function(t){return t.id==='anchor'});
+  m.krLv.forEach(function(cnt,jv){ var y=yk(n-jv)-.15; var sp=spread(Math.min(cnt,cols),cols);
+    Object.keys(sp).forEach(function(cs){var x=xs[+cs]; sc.bar([x,y,zb],[x,y,zb-.4],.03,'kr'); sc.box(x,y,zb-.42,.12,.12,.04,'kr'); if(hasAnchor) sc.box(x,y,zb-.46,.04,.04,.06,'anchor')});
+  });
+  sc.W=m.width; sc.H=m.H; sc.zFront=zf; sc.zBack=zb; sc.wallZ=m.wall?zb-.5:null;
+  return sc;
+}
+function buildRadius(m,maxFaces){
+  var sc=new Scene(), N=m.N, n=m.n, Ri=m.D/2, Ro=m.R, cx=Ro, cz=0, shown=Math.min(N,maxFaces||N), full=shown===N;
+  var yk=function(k){return k===0?.2:2*k};
+  function P(r,i,y){var a=2*Math.PI*i/N-Math.PI/2; return [cx+r*Math.cos(a),y,cz+r*Math.sin(a)]}
+  var faces=full?N:shown, postsTo=full?N:shown+1;
+  for(var i=0;i<postsTo;i++) for(var d=0;d<2;d++){
+    var r=d===0?Ri:Ro, y=0, pcs=Calc.clampPieces(n,(i+d)%2===0), B=P(r,i,0);
+    for(var q=0;q<pcs.length;q++){ sc.bar(P(r,i,y),P(r,i,y+pcs[q]),.028,pcs[q]===4?'st4':'st2'); y+=pcs[q] }
+    supports(sc,m,B[0],B[2]);
+  }
+  for(var k=0;k<=n;k++){
+    var y2=yk(k);
+    for(var f=0;f<faces;f++){ sc.bar(P(Ri,f,y2),P(Ri,f+1,y2),.024,'sv37'); sc.bar(P(Ro,f,y2),P(Ro,f+1,y2),.024,'sv37') }
+    for(var i2=0;i2<postsTo;i2++){ sc.bar(P(Ri,i2,y2+.05),P(Ro,i2,y2+.05),.02,'pop'); var a=P(Ri,i2,y2),b=P(Ro,i2,y2); sc.box(a[0],a[1],a[2],.09,.09,.09,'hn'); sc.box(b[0],b[1],b[2],.09,.09,.09,'hn') }
+  }
+  // диагонали через грань по наружному кольцу
+  for(var f3=0;f3<faces;f3+=2) for(var t=0;t<m.dper;t++){
+    var fl=t%2===1, ya=4*t, yb2=Math.min(4*t+4,2*n), A=P(Ro+.05,fl?f3+1:f3,ya), Bp=P(Ro+.05,fl?f3:f3+1,yb2);
+    sc.bar(A,Bp,.018,'sv53'); [A,Bp,[(A[0]+Bp[0])/2,(A[1]+Bp[1])/2,(A[2]+Bp[2])/2]].forEach(function(Q){sc.box(Q[0],Q[1],Q[2],.08,.08,.08,'hp')});
+  }
+  // настил по граням, ярусы снизу вверх
+  var rm=(Ri+Ro)/2;
+  for(var tj=0;tj<m.t;tj++) for(var f4=0;f4<faces;f4++){
+    var a0=P(rm,f4,0), a1=P(rm,f4+1,0), ux=a1[0]-a0[0], uz=a1[2]-a0[2], ul=Math.hypot(ux,uz); ux/=ul; uz/=ul;
+    var vx=-uz, vz=ux, w=m.deckW, tot=w*m.deckPer;
+    for(var q3=0;q3<m.deckPer;q3++){ var off=-tot/2+w*(q3+.5); sc.obox([(a0[0]+a1[0])/2+ux*off,yk(tj)+.05,(a0[2]+a1[2])/2+uz*off],[ux,0,uz],[vx,0,vz],w*.94,.04,m.depth*.92,'deck') }
+  }
+  // наклонные лестницы в гранях
+  var lf=m.lad>=2?[0,Math.floor(faces/2)]:m.lad===1?[0]:[];
+  lf.forEach(function(f5){ inclinedLadders(sc,P(rm,f5+.15,0),P(rm,f5+.85,0),yk,n,0) });
+  // кронштейны к резервуару
+  var hasAnchor=m.items.some(function(t){return t.id==='anchor'});
+  m.krLv.forEach(function(cnt,jv){ var y=yk(n-jv)-.15, sel=spread(Math.min(cnt,N),N), off=jv%2;
+    for(var i3=0;i3<postsTo;i3++){ if(!sel[(i3+off)%N]) continue; var a=P(Ri,i3,y), b=P(Ri-.4,i3,y); sc.bar(a,b,.03,'kr'); sc.box(b[0],b[1],b[2],.1,.1,.1,'kr'); if(hasAnchor){var c3=P(Ri-.45,i3,y); sc.box(c3[0],c3[1],c3[2],.04,.04,.04,'anchor')} }
+  });
+  // резервуар
+  var Rt=Math.max(.3,Ri-.45), seg=Math.max(24,Math.min(96,N*2)), Ht=m.H+.6, segShown=full?seg:Math.ceil(seg*shown/N);
+  for(var s=0;s<segShown;s++){
+    var a1=2*Math.PI*s/seg-Math.PI/2, a2=2*Math.PI*(s+1)/seg-Math.PI/2, am=(a1+a2)/2;
+    var p1=[cx+Rt*Math.cos(a1),0,Rt*Math.sin(a1)], p2=[cx+Rt*Math.cos(a2),0,Rt*Math.sin(a2)];
+    sc.quads.push({p:[p1,[p1[0],Ht,p1[2]],[p2[0],Ht,p2[2]],p2],n:[Math.cos(am),0,Math.sin(am)],g:'tank'});
+  }
+  sc.W=2*Ro; sc.H=m.H; sc.zFront=Ro; sc.zBack=-Ro; sc.wallZ=null; sc.gz0=-Math.ceil(Ro)-2; sc.gz1=Math.ceil(Ro)+2;
+  sc.wLabel='Ø '+dec(2*Ro)+' м по наружным стойкам';
+  sc.fragment=full?null:{shown:shown,total:N};
+  return sc;
+}
+var MAX_CELLS=900;   // больше секций схема не рисует целиком — показывает фрагмент
+function buildScene(m){
+  if(m.kind==='radius'){ return buildRadius(m, m.N*m.n>MAX_CELLS?Math.max(6,Math.floor(MAX_CELLS/m.n)):m.N) }
+  var frame=m.kind==='frame', span=frame?m.s:m.b, maxSpan=Math.max(2,Math.min(span,Math.floor(MAX_CELLS/Math.max(1,m.n)),60));
+  var v=m, frac=1;
+  if(span>maxSpan){
+    frac=maxSpan/span;
+    v=Object.assign({},m);
+    if(frame){v.s=maxSpan;v.rows=maxSpan+1;v.width=maxSpan*m.cell;v.lad=Math.min(m.lad,v.rows)}
+    else {v.b=maxSpan;v.cols=maxSpan+1;v.width=maxSpan*m.step;v.lad=Math.min(m.lad,maxSpan);v.dpos=Math.max(1,Math.round(m.dpos*frac));
+      v.lineLen=m.width;   // раскладка труб — по всей длине фасада, на схеме видна её начальная часть
+      v.krLv=m.krLv.map(function(x){return Math.max(1,Math.round(x*frac))})}
+    v.items=m.items.map(function(i){return (i.id==='bracket'||i.id==='anchor')?Object.assign({},i,{qty:Math.max(1,Math.round(i.qty*frac))}):i});
+  }
+  var sc=frame?buildFrame(v):buildClamp(v);
+  sc.fragment=span>maxSpan?{shown:maxSpan,total:span,width:v.width,full:m.width}:null;
+  return sc;
+}
+
+/* ---------- выбор элементов, легенда, подсказки ---------- */
+var UI={
+  sel:null, hidden:{},
+  item:function(id){return model&&model.items.filter(function(i){return i.id===id})[0]},
+  select:function(id){
+    if(id&&!UI.item(id)) id=null;
+    UI.sel=id; View.setSel(id); UI.refresh();
+  },
+  toggle:function(id){
+    UI.hidden[id]=!UI.hidden[id]; View.setHidden(UI.hidden);
+    if(UI.hidden[id]&&UI.sel===id) UI.sel=null, View.setSel(null);
+    UI.refresh();
+  },
+  refresh:function(){
+    var m=model; if(!m) return;
+    var css=getComputedStyle(document.documentElement);
+    if(UI.sel&&!UI.item(UI.sel)){UI.sel=null;View.setSel(null)}
+    Object.keys(UI.hidden).forEach(function(k){if(!UI.item(k)) delete UI.hidden[k]});
+    View.setHidden(UI.hidden);
+    var lg=$('#legend');
+    lg.innerHTML=m.items.map(function(i){
+      var col=css.getPropertyValue(GROUPCOL[i.id]||'--c4').trim();
+      return '<button type="button" class="chip'+(UI.hidden[i.id]?' off':'')+(UI.sel===i.id?' sel':'')+'" data-id="'+i.id+'" title="Показать или скрыть на схеме"><span class="sw" style="background:'+col+'"></span>'+shortName(i.name)+'</button>';
+    }).join('');
+    lg.querySelectorAll('.chip').forEach(function(c){
+      c.addEventListener('click',function(){UI.toggle(c.dataset.id)});
+      c.addEventListener('mouseenter',function(){View.hover(c.dataset.id)});
+      c.addEventListener('mouseleave',function(){View.hover(null)});
+    });
+    document.querySelectorAll('#rows tr').forEach(function(tr){
+      tr.classList.toggle('sel',tr.dataset.id===UI.sel); tr.classList.toggle('off',!!UI.hidden[tr.dataset.id]);
+    });
+    var info=$('#info'), it=UI.sel&&UI.item(UI.sel);
+    if(it){
+      var col=css.getPropertyValue(GROUPCOL[it.id]||'--c4').trim();
+      info.className='on';
+      info.innerHTML='<div><span class="sw" style="background:'+col+'"></span><b>'+it.name+'</b></div><div class="meta">'+fmtN(it.qty)+' шт. · '+fmtM(it.kg)+' кг · по '+fmtM(it.unit).replace(/^0,0$/,'0')+' кг · '+(it.price==null?'цена '+NOPRICE:fmtR(it.price)+' ₽/шт, '+fmtR(it.cost)+' ₽')+'</div><div class="acts"><button type="button" class="tool" id="i-hide">Скрыть остальные</button><button type="button" class="tool" id="i-x">Снять выбор</button></div>';
+      $('#i-x').onclick=function(){UI.select(null)};
+      $('#i-hide').onclick=function(){
+        m.items.forEach(function(x){UI.hidden[x.id]=(x.id!==it.id)}); UI.hidden[it.id]=false; View.setHidden(UI.hidden); UI.refresh();
+      };
+    } else { info.className=''; info.innerHTML='' }
+  }
+};
+function shortName(n){return n.replace(/\s*\(.*?\)/g,'').replace(/ \d[\d,×*]+ мм$/,'')}
+
+/* ---------- собственный 3D-рендер на canvas 2D ---------- */
+var View=(function(){
+  var cv=$('#cv'), ctx=cv.getContext('2d'), sc=null, mdl=null, dpr=1, W=300, H=300;
+  var cam={yaw:.62,pitch:.28,dist:20,tx:0,ty:0,tz:0}, home=null, hov=null, sel=null, shov=null, hid={}, last=[], dirty=true, col={}, rgb={};
+  function readColors(){
+    var cs=getComputedStyle(document.documentElement);
+    ['--accent','--grid','--wall','--stage','--ink','--muted','--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8'].forEach(function(k){col[k]=cs.getPropertyValue(k).trim()});
+    Object.keys(col).forEach(function(k){rgb[k]=parse(col[k])});
+  }
+  function parse(h){h=h.replace('#','');if(h.length===3)h=h.replace(/(.)/g,'$1$1');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]}
+  function shade(c,f){return 'rgb('+Math.round(Math.min(255,c[0]*f))+','+Math.round(Math.min(255,c[1]*f))+','+Math.round(Math.min(255,c[2]*f))+')'}
+  function resize(){
+    var r=cv.getBoundingClientRect(); dpr=Math.min(2,window.devicePixelRatio||1);
+    W=Math.max(10,r.width); H=Math.max(10,r.height);
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); dirty=true;
+  }
+  function fit(keepAngles){
+    var w=sc.W, h=sc.H;
+    var size=Math.max(w,h*1.25,6);
+    var d=size*1.55+4, asp=W/H; if(asp<1) d*=1.25/Math.max(.55,asp)*.8;
+    var yaw=keepAngles?cam.yaw:.62, pitch=keepAngles?cam.pitch:.28;
+    Object.assign(cam,{yaw:yaw,pitch:pitch,dist:d,tx:w/2,ty:h/2,tz:0});
+  }
+  function setHome(){fit(false)}
+  function set(s,m){var first=!sc; var prevW=sc&&sc.W, prevH=sc&&sc.H; sc=s; mdl=m; if(first) fit(false); else if(prevW!==s.W||prevH!==s.H) fit(true); dirty=true; schedule()}
+  function hover(g){hov=g;dirty=true;schedule()}
+  function focus(){return hov||shov||sel}
+  function view(name){
+    var c={home:null,front:{yaw:0,pitch:.04},side:{yaw:Math.PI/2,pitch:.04},top:{yaw:0,pitch:1.5}}[name];
+    if(name==='home'){setHome();} else {Object.assign(cam,c);}
+    if(name==='front'||name==='top'||name==='side'){ var w=sc.W,h=sc.H; cam.tx=w/2;cam.ty=h/2;cam.tz=0; cam.dist=Math.max(w,h*1.25,6)*(name==='side'?1.7:1.55)+4; if(name==='top') cam.dist=Math.max(w,6)*1.5+4 }
+    dirty=true;schedule();
+  }
+  var raf=0;
+  function schedule(){ if(!raf) raf=requestAnimationFrame(function(){raf=0; if(dirty){dirty=false;draw()}}) }
+  function basis(){
+    var cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch), sy=Math.sin(cam.yaw), cy=Math.cos(cam.yaw);
+    var pos=[cam.tx+cam.dist*cp*sy, cam.ty+cam.dist*sp, cam.tz+cam.dist*cp*cy];
+    var f=[cam.tx-pos[0],cam.ty-pos[1],cam.tz-pos[2]]; var fl=Math.hypot(f[0],f[1],f[2]); f=f.map(function(v){return v/fl});
+    var r=[f[2]*0-f[1]*0, 0, 0]; // up=(0,1,0): right = f × up
+    r=[f[1]*0-f[2]*1, f[2]*0-f[0]*0, f[0]*1-f[1]*0]; var rl=Math.hypot(r[0],r[1],r[2]); r=r.map(function(v){return v/rl});
+    var u=[r[1]*f[2]-r[2]*f[1], r[2]*f[0]-r[0]*f[2], r[0]*f[1]-r[1]*f[0]];
+    return {pos:pos,f:f,r:r,u:u};
+  }
+  function draw(){
+    if(!sc) return;
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+    var B=basis(), fpx=(H/2)/Math.tan(.35);
+    function proj(p){
+      var dx=p[0]-B.pos[0], dy=p[1]-B.pos[1], dz=p[2]-B.pos[2];
+      var x=dx*B.r[0]+dy*B.r[1]+dz*B.r[2], y=dx*B.u[0]+dy*B.u[1]+dz*B.u[2], z=dx*B.f[0]+dy*B.f[1]+dz*B.f[2];
+      return {x:W/2+fpx*x/z, y:H/2-fpx*y/z, z:z};
+    }
+    var gridCol=col['--grid'];
+    // сетка земли
+    ctx.lineWidth=1; ctx.strokeStyle=gridCol; ctx.globalAlpha=.9;
+    var gx0=-3, gx1=Math.ceil(sc.W)+3, gz0=sc.gz0!=null?sc.gz0:-4, gz1=sc.gz1!=null?sc.gz1:5;
+    ctx.beginPath();
+    for(var gx=gx0;gx<=gx1;gx++){ var a=proj([gx,0,gz0]), b=proj([gx,0,gz1]); if(a.z>.1&&b.z>.1){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)} }
+    for(var gz=gz0;gz<=gz1;gz++){ var c=proj([gx0,0,gz]), d=proj([gx1,0,gz]); if(c.z>.1&&d.z>.1){ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y)} }
+    ctx.stroke(); ctx.globalAlpha=1;
+    // стена
+    if(sc.wallZ!==null){
+      var wz=sc.wallZ, wx0=-1.2, wx1=sc.W+1.2, wy1=sc.H+1.2;
+      var P=[proj([wx0,0,wz]),proj([wx1,0,wz]),proj([wx1,wy1,wz]),proj([wx0,wy1,wz])];
+      if(P.every(function(p){return p.z>.1})){
+        ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); for(var i=1;i<4;i++) ctx.lineTo(P[i].x,P[i].y); ctx.closePath();
+        ctx.globalAlpha=.16; ctx.fillStyle=col['--wall']; ctx.fill(); ctx.globalAlpha=.7; ctx.strokeStyle=col['--wall']; ctx.lineWidth=1; ctx.stroke(); ctx.globalAlpha=1;
+      }
+    }
+    // примитивы
+    var prims=[], zmin=1e9, zmax=-1e9, i;
+    for(i=0;i<sc.bars.length;i++){
+      var bb=sc.bars[i]; if(hid[bb.g]) continue; var pa=proj(bb.a), pb=proj(bb.b);
+      if(pa.z<.2||pb.z<.2) continue;
+      var zz=(pa.z+pb.z)/2; prims.push({t:0,a:pa,b:pb,r:bb.r,g:bb.g,z:zz});
+      if(zz<zmin)zmin=zz; if(zz>zmax)zmax=zz;
+    }
+    var L=[.35,.8,.5], ll=Math.hypot(L[0],L[1],L[2]); L=L.map(function(v){return v/ll});
+    for(i=0;i<sc.quads.length;i++){
+      var q=sc.quads[i]; if(hid[q.g]) continue; var cx=0,cy=0,cz=0;
+      for(var k=0;k<4;k++){cx+=q.p[k][0];cy+=q.p[k][1];cz+=q.p[k][2]}
+      cx/=4;cy/=4;cz/=4;
+      var tv=[B.pos[0]-cx,B.pos[1]-cy,B.pos[2]-cz];
+      if(tv[0]*q.n[0]+tv[1]*q.n[1]+tv[2]*q.n[2]<=0) continue;
+      var pp=q.p.map(proj); if(pp.some(function(p){return p.z<.2})) continue;
+      var zq=(pp[0].z+pp[1].z+pp[2].z+pp[3].z)/4;
+      var lam=Math.max(0,q.n[0]*L[0]+q.n[1]*L[1]+q.n[2]*L[2]);
+      prims.push({t:1,p:pp,g:q.g,z:zq,f:.55+.5*lam});
+      if(zq<zmin)zmin=zq; if(zq>zmax)zmax=zq;
+    }
+    prims.sort(function(a,b){return b.z-a.z});
+    var span=Math.max(1e-3,zmax-zmin); last=prims; var fg=focus();
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    var accent=col['--accent'];
+    for(i=0;i<prims.length;i++){
+      var pr=prims[i], isHov=fg&&pr.g===fg;
+      var fade=1-.45*((pr.z-zmin)/span);
+      var alpha=fg?(isHov?1:.18):fade;
+      if(pr.g==='tank') alpha=fg?.08:.32;
+      ctx.globalAlpha=alpha;
+      var key=GROUPCOL[pr.g]||'--c4', base=rgb[key];
+      if(pr.t===0){
+        ctx.strokeStyle=isHov?accent:shade(base,1);
+        pr.lw=Math.max(isHov?2:1,2*pr.r*fpx/pr.z*(isHov?1.5:1)); ctx.lineWidth=pr.lw;
+        ctx.beginPath(); ctx.moveTo(pr.a.x,pr.a.y); ctx.lineTo(pr.b.x,pr.b.y); ctx.stroke();
+      } else {
+        ctx.fillStyle=isHov?accent:shade(base,pr.f);
+        ctx.beginPath(); ctx.moveTo(pr.p[0].x,pr.p[0].y); for(var k2=1;k2<4;k2++) ctx.lineTo(pr.p[k2].x,pr.p[k2].y); ctx.closePath(); ctx.fill();
+        ctx.lineWidth=.6; ctx.strokeStyle=col['--stage']; ctx.globalAlpha=alpha*.6; ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+    // размерные линии: высота и длина
+    dims(proj);
+  }
+  function dims(proj){
+    var w=sc.W, h=sc.H, z=sc.zFront+.9, tickc=col['--muted'];
+    ctx.strokeStyle=tickc; ctx.fillStyle=tickc; ctx.lineWidth=1; ctx.font='500 12px '+getComputedStyle(document.body).getPropertyValue('--f-mono'); ctx.textAlign='center';
+    function line(a,b,label,off){
+      var pa=proj(a), pb=proj(b); if(pa.z<.2||pb.z<.2) return;
+      ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      var mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
+      var tw=ctx.measureText(label).width+10; ctx.fillStyle=col['--stage']; ctx.fillRect(mx-tw/2,my-9,tw,18); ctx.fillStyle=tickc; ctx.fillText(label,mx,my+4);
+    }
+    ctx.globalAlpha=.9;
+    line([0,0,z],[w,0,z],sc.wLabel||(dec(w)+' м'+(sc.fragment?' (фрагмент)':'')));
+    line([-.9,0,z],[-.9,h,z],h+' м');
+    ctx.globalAlpha=1;
+  }
+  // управление
+  var ptr={}, pinch=0, down=null, tip=$('#tip');
+  function segDist(px,py,a,b){var dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((px-a.x)*dx+(py-a.y)*dy)/l)):0;var x=a.x+t*dx-px,y=a.y+t*dy-py;return Math.sqrt(x*x+y*y)}
+  function inPoly(P,x,y){var c=false;for(var i=0,j=P.length-1;i<P.length;j=i++){if(((P[i].y>y)!==(P[j].y>y))&&(x<(P[j].x-P[i].x)*(y-P[i].y)/(P[j].y-P[i].y)+P[i].x)) c=!c}return c}
+  function pick(mx,my){
+    var best=null,bz=1e9;
+    for(var i=0;i<last.length;i++){
+      var pr=last[i]; if(pr.z>=bz||pr.g==='tank') continue;
+      var hit=pr.t===0?segDist(mx,my,pr.a,pr.b)<=Math.max(6,(pr.lw||1)/2+4):inPoly(pr.p,mx,my);
+      if(hit){best=pr;bz=pr.z}
+    }
+    return best?best.g:null;
+  }
+  function local(e){var r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+  cv.addEventListener('contextmenu',function(e){e.preventDefault()});
+  cv.addEventListener('pointerdown',function(e){
+    cv.setPointerCapture(e.pointerId); ptr[e.pointerId]={x:e.clientX,y:e.clientY,b:e.button,shift:e.shiftKey};
+    down={x:e.clientX,y:e.clientY,moved:0,n:Object.keys(ptr).length};
+    cv.classList.add('drag'); var ks=Object.keys(ptr); if(ks.length===2){var a=ptr[ks[0]],b=ptr[ks[1]];pinch=Math.hypot(a.x-b.x,a.y-b.y)}
+  });
+  cv.addEventListener('pointermove',function(e){
+    var p=ptr[e.pointerId];
+    if(!p){ // наведение без нажатия: подсветка и подсказка
+      var l=local(e), g=pick(l.x,l.y);
+      if(g!==shov){shov=g;dirty=true;schedule()}
+      cv.style.cursor=g?'pointer':'';
+      var it=g&&UI.item(g);
+      if(it){tip.textContent=it.name+' · '+it.qty+' шт.';tip.style.display='block';tip.style.left=Math.min(window.innerWidth-270,e.clientX+14)+'px';tip.style.top=(e.clientY+16)+'px'} else tip.style.display='none';
+      return;
+    }
+    var dx=e.clientX-p.x, dy=e.clientY-p.y; var ks=Object.keys(ptr);
+    if(down) down.moved+=Math.abs(dx)+Math.abs(dy);
+    if(ks.length===2){
+      p.x=e.clientX;p.y=e.clientY; var a=ptr[ks[0]],b=ptr[ks[1]],d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(pinch>0) cam.dist=clampD(cam.dist*pinch/d); pinch=d;
+    } else if(p.b===2||e.shiftKey){
+      var B=basis(), s=cam.dist*.0016;
+      cam.tx+=(-B.r[0]*dx+B.u[0]*dy)*s; cam.ty+=(-B.r[1]*dx+B.u[1]*dy)*s; cam.tz+=(-B.r[2]*dx+B.u[2]*dy)*s; p.x=e.clientX;p.y=e.clientY;
+    } else {
+      cam.yaw-=dx*.0085; cam.pitch=Math.max(-.2,Math.min(1.52,cam.pitch+dy*.0085)); p.x=e.clientX;p.y=e.clientY;
+    }
+    dirty=true; schedule();
+  });
+  function up(e){
+    var wasClick=down&&down.n===1&&down.moved<6&&ptr[e.pointerId]&&ptr[e.pointerId].b===0&&e.type==='pointerup';
+    delete ptr[e.pointerId]; if(!Object.keys(ptr).length) cv.classList.remove('drag'); pinch=0;
+    if(wasClick){ var l=local(e), g=pick(l.x,l.y); UI.select(g&&g===UI.sel?null:g) }
+  }
+  cv.addEventListener('pointerleave',function(){shov=null;tip.style.display='none';dirty=true;schedule()});
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+  function clampD(d){return Math.max(3,Math.min(400,d))}
+  cv.addEventListener('wheel',function(e){e.preventDefault(); cam.dist=clampD(cam.dist*Math.exp(e.deltaY*.0012)); dirty=true; schedule()},{passive:false});
+  document.querySelectorAll('.tool').forEach(function(b){b.addEventListener('click',function(){view(b.dataset.v)})});
+  new ResizeObserver(function(){resize();schedule()}).observe(cv);
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function recolor(){readColors();dirty=true;schedule(); if(model) update()}
+  if(mq.addEventListener) mq.addEventListener('change',recolor);
+  new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  readColors(); resize();
+  return {set:set,hover:hover,setSel:function(g){sel=g;dirty=true;schedule()},setHidden:function(h){hid=Object.assign({},h);dirty=true;schedule()},redraw:function(){dirty=true;schedule()}};
+})();
+
+
+/* ---------- лист для печати: таблица и вид фасада, как в исходной программе ---------- */
+var PCOL={frame:'#c8141e',frameL:'#c8141e',half:'#c8141e',halfpost:'#c8141e',diag:'#2a2a2a',horiz:'#2a2a2a',rigel:'#555',
+  deck:'#7d7b2e',deck05:'#9a8a3a',base:'#222',bracket:'#0e7f78',stab:'#0e7f78',anchor:'#0e7f78',
+  st4:'#c8141e',st2:'#e0505a',sv:'#2a2a2a',sv37:'#6a3fa8',sv53:'#2a2a2a',pop:'#666',hn:'#222',hp:'#222',lad:'#c8141e',kr:'#0e7f78',pod:'#222'};
+function drawElevation(sc, Wpx, Hpx){
+  var cv=document.createElement('canvas'), k=2; cv.width=Wpx*k; cv.height=Hpx*k;
+  var ctx=cv.getContext('2d'); ctx.scale(k,k); ctx.fillStyle='#fff'; ctx.fillRect(0,0,Wpx,Hpx);
+  var pad=46, x0=-1.2, x1=sc.W+.6, y0=-.3, y1=sc.H+.6;
+  var s=Math.min((Wpx-pad*1.6)/(x1-x0),(Hpx-pad*1.4)/(y1-y0));
+  var ox=pad+((Wpx-pad*1.6)-(x1-x0)*s)/2, oy=Hpx-pad*.9;
+  function X(x){return ox+(x-x0)*s} function Y(y){return oy-(y-y0)*s}
+  // земля
+  ctx.strokeStyle='#999'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(X(-1),Y(0)); ctx.lineTo(X(sc.W+.5),Y(0)); ctx.stroke();
+  // настил — полосой, как в исходной программе
+  sc.quads.forEach(function(q){
+    if(q.n[2]!==1) return; var g=q.g, xs=q.p.map(function(v){return v[0]}), ys=q.p.map(function(v){return v[1]});
+    var xa=Math.min.apply(0,xs), xb=Math.max.apply(0,xs), ya=Math.min.apply(0,ys), yb=Math.max.apply(0,ys);
+    if(g==='deck'||g==='deck05'){ ya-=.07; yb+=.07 }
+    ctx.fillStyle=PCOL[g]||'#444'; ctx.fillRect(X(xa),Y(yb),Math.max(1,(xb-xa)*s),Math.max(1,(yb-ya)*s));
+  });
+  ctx.lineCap='butt';
+  sc.bars.forEach(function(b){
+    var dx=b.b[0]-b.a[0], dy=b.b[1]-b.a[1];
+    ctx.strokeStyle=PCOL[b.g]||'#444';
+    if(Math.abs(dx)<1e-6&&Math.abs(dy)<1e-6){ // перекладина поперёк рамы видна торцом — рисуем штрихом
+      if(b.g==='frameL'||b.g==='lad'){ ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(X(b.a[0]),Y(b.a[1])); ctx.lineTo(X(b.a[0]+.22),Y(b.a[1]+.12)); ctx.stroke() }
+      return;
+    }
+    ctx.lineWidth=(b.g==='frame'||b.g==='frameL'||b.g==='st4'||b.g==='st2'||b.g==='half')?Math.max(1.4,b.r*2*s):Math.max(.8,b.r*1.4*s);
+    ctx.beginPath(); ctx.moveTo(X(b.a[0]),Y(b.a[1])); ctx.lineTo(X(b.b[0]),Y(b.b[1])); ctx.stroke();
+  });
+  // размеры
+  ctx.strokeStyle='#333'; ctx.fillStyle='#111'; ctx.lineWidth=1; ctx.font='500 12px '+getComputedStyle(document.body).getPropertyValue('--f-mono');
+  var yd=Y(0)+18; ctx.beginPath(); ctx.moveTo(X(0),yd); ctx.lineTo(X(sc.W),yd); ctx.moveTo(X(0),yd-5); ctx.lineTo(X(0),yd+5); ctx.moveTo(X(sc.W),yd-5); ctx.lineTo(X(sc.W),yd+5); ctx.stroke();
+  ctx.textAlign='center'; ctx.fillText(dec(sc.W)+' м'+(sc.fragment?' (фрагмент)':''),(X(0)+X(sc.W))/2,yd+16);
+  var xd=X(0)-26; ctx.beginPath(); ctx.moveTo(xd,Y(0)); ctx.lineTo(xd,Y(sc.H)); ctx.moveTo(xd-5,Y(0)); ctx.lineTo(xd+5,Y(0)); ctx.moveTo(xd-5,Y(sc.H)); ctx.lineTo(xd+5,Y(sc.H)); ctx.stroke();
+  ctx.save(); ctx.translate(xd-8,(Y(0)+Y(sc.H))/2); ctx.rotate(-Math.PI/2); ctx.fillText(dec(sc.H)+' м',0,0); ctx.restore();
+  return cv;
+}
+var PRINT={cv:null,name:'lesa'};
+function openPrint(){
+  var m=model, st=state[state.kind], frame=m.kind==='frame', rad=m.kind==='radius';
+  var sc=buildScene(m);
+  var title=frame?('Строительные леса рамные ЛРСП '+m.series):rad?'Леса хомутовые радиусные ЛСПХ '+m.series:'Леса хомутовые ЛСПХ '+m.series;
+  var rows=[];
+  function r(n,v){rows.push('<tr><td>'+n+'</td><td class="v" colspan="3">'+v+'</td></tr>')}
+  function gap(){rows.push('<tr class="gap"><td colspan="4"></td></tr>')}
+  r('Высота (м)',dec(m.H)); if(rad){ r('Внутренний диаметр (м)',dec(m.D)); r('Граней',m.N); r('Шаг стоек (м)',m.sOut.toFixed(2).replace('.',',')); r('Глубина (м)',dec(m.depth)); } else r('Длина (м)',dec(m.width));
+  if(m.kind==='clamp'){ r('Шаг стоек (м)',dec(m.step)); r('Глубина (м)',dec(m.depth)); }
+  if(frame){ r('Труба рамы',m.pipe+' мм'); r('Ширина секции (м)',dec(m.cell)); }
+  r('Ярусов настила',m.t); r('Подъёмов',m.lad);
+  if(frame) r('Ярусы',{full:'с ригелями и настилами',rigel:'с ригелями без настилов',none:'без ригелей и настилов'}[m.deckSet||'full']);
+  if(frame) r('Расчёт связей',m.method==='gost'?'по ГОСТ':['','диаг. + гориз.','экономный','диаг. + 2 гориз.'][m.braces]);
+  gap();
+  rows.push('<tr class="hd"><td>Позиция</td><td class="v">Кол-во</td><td class="v">Цена, ₽</td><td class="v">Сумма, ₽</td></tr>');
+  m.items.forEach(function(i){rows.push('<tr><td>'+i.name+'</td><td class="v">'+fmtN(i.qty)+'</td><td class="v">'+(i.price==null?'—':fmtR(i.price))+'</td><td class="v">'+(i.cost==null?NOPRICE:fmtR(i.cost))+'</td></tr>')});
+  gap();
+  r('Стоимость (₽)',fmtR(m.cost)); rows[rows.length-1]=rows[rows.length-1].replace('<tr>','<tr class="tot">');
+  if(m.area){ r('За 1 кв.м (₽)',fmtR(m.cost/m.area)); }
+  rows.push('<tr class="tot"><td>Масса (кг)</td><td class="v" colspan="3">'+fmtN(Math.round(m.mass))+'</td></tr>');
+  rows.push('<tr class="tot"><td>'+(rad?'Площадь по наружному кольцу (кв.м)':'Площадь (кв.м)')+'</td><td class="v" colspan="3">'+fmtN(m.area)+'</td></tr>');
+  rows.push('<tr class="tot"><td>Элементов (шт)</td><td class="v" colspan="3">'+fmtN(m.items.reduce(function(a,i){return a+i.qty},0))+'</td></tr>');
+  var cv=drawElevation(sc, 760, 560); PRINT.cv=cv;
+  PRINT.name=(frame?'ramnye':rad?'radiusnye':'homutovye')+'-'+(rad?'D'+dec(m.D):dec(m.width))+'x'+dec(m.H);
+  var d=new Date(), date=d.toLocaleDateString('ru-RU');
+  $('#sheet').innerHTML='<h1>'+title+'</h1><div class="psub">'+(rad?('Ø '+dec(m.D)+' м × '+dec(m.H)+' м · '+m.N+' граней'):(dec(m.width)+' × '+dec(m.H)+' м · '+fmtN(m.area)+' м²'))+' · '+date+'</div>'+
+    '<div class="pgrid"><table class="ptab"><thead><tr><th>Наименование</th><th colspan="3">Значение</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
+    '<div class="pimg"><img alt="Вид фасада лесов" src="'+cv.toDataURL('image/png')+'">'+
+    (sc.fragment?'<div class="pcap">На схеме '+(rad?'сектор':'фрагмент')+': '+sc.fragment.shown+' из '+sc.fragment.total+' '+(frame?'секций':rad?'граней':'пролётов')+'. Состав комплекта — на всё сооружение.</div>':'<div class="pcap">'+(rad?'Вид сбоку на кольцо лесов':'Вид с фасада')+'</div>')+'</div></div>'+
+    '<div class="pfoot">Цены с НДС по прайсу от 17.08.2026'+(m.unpriced.length?'; позиции «'+NOPRICE+'» в сумму не входят':'')+'. Масса ориентировочная. Расчёт: Калькулятор лесов 3D.</div>';
+  var inFrame=false; try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+  $('#p-note').textContent=inFrame?'Если окно печати не откроется, откройте калькулятор файлом kalkulyator-lesov-3d.html в браузере: там работают печать, сохранение в PDF и PNG.':'В окне печати можно выбрать принтер или «Сохранить как PDF».';
+  $('#p-png').hidden=inFrame;
+  $('#pmodal').hidden=false; $('#p-print').focus();
+}
+$('#printbtn').addEventListener('click',openPrint);
+$('#p-close').addEventListener('click',function(){$('#pmodal').hidden=true});
+$('#pmodal').addEventListener('click',function(e){if(e.target.id==='pmodal')$('#pmodal').hidden=true});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#pmodal').hidden)$('#pmodal').hidden=true});
+$('#p-print').addEventListener('click',function(){try{window.print()}catch(e){}});
+$('#p-png').addEventListener('click',function(){
+  if(!PRINT.cv) return;
+  var a=document.createElement('a'); a.href=PRINT.cv.toDataURL('image/png'); a.download='lesa-'+PRINT.name+'.png';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+
+/* ---------- вкладки, копирование ---------- */
+document.querySelectorAll('#tabs button').forEach(function(b){
+  b.addEventListener('click',function(){
+    state.kind=b.dataset.k;
+    document.querySelectorAll('#tabs button').forEach(function(x){x.setAttribute('aria-selected',x===b?'true':'false')});
+    buildDims(); buildOpts(); sc_reset(); update();
+  });
+});
+function sc_reset(){}
+$('#copy').addEventListener('click',function(){
+  var m=model; var txt=(m.kind==='frame'?'Рамные леса, '+dec(m.width)+' × '+m.H+' м':m.kind==='clamp'?'Хомутовые леса ЛСПХ, '+dec(m.width)+' × '+m.H+' м':'Радиусные леса ЛСПХ, Ø '+dec(m.D)+' × '+m.H+' м, граней '+m.N)+', ярусов настила: '+m.t+'\n'+
+    m.items.map(function(i){return i.name+' — '+i.qty+' шт.'+(i.cost==null?' (цена по запросу)':' × '+fmtR(i.price)+' = '+fmtR(i.cost)+' ₽')}).join('\n')+'\nИтого: '+fmtR(m.cost)+' ₽ с НДС'+(m.unpriced.length?' (без позиций по запросу)':'')+'\nМасса ориентировочно: '+Math.round(m.mass)+' кг';
+  var btn=$('#copy'), fb=$('#fallback');
+  function ok(){btn.textContent='Скопировано';setTimeout(function(){btn.textContent='Скопировать список'},1500)}
+  function fail(){fb.style.display='block';fb.value=txt;fb.focus();fb.select()}
+  try{ navigator.clipboard.writeText(txt).then(ok,fail) }catch(e){ fail() }
+});
+
+buildDims(); buildOpts(); update();
+})();
+</script>
+</body></html>
