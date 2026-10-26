@@ -110,6 +110,14 @@ tfoot td{font-weight:600;border-bottom:0}
 .pbar .copy{background:var(--panel);color:var(--ink)}
 .pbar .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .pnote{color:#fff;font-size:12.5px;flex-basis:100%}
+.plab{color:#fff;font-size:13px;margin-left:8px}
+.pbar .seg label span{background:var(--panel);color:var(--ink)}
+.pbar .seg input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+td.ed{color:var(--accent)}
+.pe{width:10ch;box-sizing:border-box;text-align:right;font:12.5px var(--f-mono);color:#111;background:#fffbe6;border:1px dashed #b9a76a;border-radius:3px;padding:1px 4px;margin:-2px 0}
+.pe::placeholder{color:#777;font-family:var(--f-body)}
+.pe:focus{outline:2px solid #d9480f;outline-offset:0;background:#fff}
+.pe.ed{background:#ffe3cc;border:1px solid #d9480f}
 #sheet{max-width:1120px;margin:0 auto;background:#fff;color:#111;padding:28px 30px;font:13px/1.35 var(--f-body);box-shadow:0 10px 40px rgba(0,0,0,.35)}
 #sheet h1{font:600 22px/1.2 var(--f-head);margin:0 0 4px;color:#111;text-align:center}
 #sheet .psub{text-align:center;color:#555;margin-bottom:16px;font-size:12px}
@@ -132,6 +140,7 @@ tfoot td{font-weight:600;border-bottom:0}
   body>*:not(#pmodal){display:none!important}
   #pmodal{position:static;background:none;padding:0;overflow:visible}
   .pbar{display:none!important}
+  .pe,.pe.ed{border:0!important;background:none!important;padding:0!important;margin:0!important;width:100%}
   #sheet{box-shadow:none;max-width:none;padding:0}
   .pgrid{grid-template-columns:440px 1fr}
 }
@@ -183,7 +192,7 @@ tfoot td{font-weight:600;border-bottom:0}
       </div>
       <div id="tip"></div>
       <section class="card bom">
-        <div class="bomhead"><h2 style="margin:0">Состав комплекта</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="copy" id="printbtn">Печать</button><button class="copy" id="copy">Скопировать список</button></div></div>
+        <div class="bomhead"><h2 style="margin:0">Состав комплекта</h2><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="tier-main" role="radiogroup" aria-label="Вид цен"></div><button class="copy" id="printbtn">Печать</button><button class="copy" id="copy">Скопировать список</button></div></div>
         <div class="tw"><table>
           <thead><tr><th>Позиция</th><th class="n">Кол-во, шт</th><th class="n">Цена, ₽</th><th class="n">Сумма, ₽</th><th class="n">Масса, кг</th></tr></thead>
           <tbody id="rows"></tbody>
@@ -200,6 +209,8 @@ tfoot td{font-weight:600;border-bottom:0}
     <button class="copy primary" id="p-print">Печать или PDF</button>
     <button class="copy" id="p-png">Сохранить схему (PNG)</button>
     <button class="copy" id="p-close">Закрыть</button>
+    <span class="plab">Цены:</span><div class="seg" id="tier-print" role="radiogroup" aria-label="Вид цен для печати"></div>
+    <button class="copy" id="p-reset" hidden>Вернуть цены прайса</button>
     <div class="pnote" id="p-note"></div>
   </div>
   <div id="sheet"></div>
@@ -231,31 +242,33 @@ tfoot td{font-weight:600;border-bottom:0}
     if (a && qty > 0) add('anchor', a[0], qty, a[1], null);
   }
 
-  // ---------- Прайс: цена с НДС, ₽ и вес, кг (книги «Рамные и хомутовые леса» и «Комплектующие») ----------
-  // null — цена по запросу. Вес с пометкой «оц.» в прайсе не указан и взят ориентировочно.
+  // ---------- Прайс «Русинструменты» от 26.10.2026: цена с НДС, ₽, и вес, кг ----------
+  // Три уровня цен в порядке [дилер, опт, розница]. null — цена по запросу. Хомуты и анкерный крепёж в прайсе без цены.
+  // Вес, которого нет в прайсе (настил металлический 0,3×3 м), взят ориентировочно. Винтовые опоры — из листа «Комплектующие».
   const PRICE = {
-    frame: {   // [цена, вес]
-      20: { L: [982.86, 7.1], P: [806.58, 5.8] },
-      30: { L: [1068.32, 7.7], P: [876.02, 6.3] },
-      40: { L: [1185.84, 8.9], P: [1089.69, 7.5] },
-      60: { L: [1415.53, 10.9], P: [1281.99, 9.5] },
-      100: { L: [1869.56, 14.0], P: [1666.58, 12.5] }
+    // цены тройкой [дилер, опт, розница]; для рам и остальных позиций: [[цены], вес]
+    frame: {
+      20: { L: [[1003,1053,1123], 7.1], P: [[823,864,922], 5.8] },
+      30: { L: [[1090,1145,1221], 7.7], P: [[894,939,1001], 6.3] },
+      40: { L: [[1210,1271,1355], 8.9], P: [[1111,1167,1244], 7.5] },
+      60: { L: [[1444,1516,1617], 10.9], P: [[1308,1373,1465], 9.5] },
+      100: { L: [[1907,2002,2136], 14.0], P: [[1700,1785,1904], 12.5] }
     },
-    horiz: { 3: [213, 1.7], 2.5: [182, 1.4], 2: [139, 1.1] },
-    diag: { 3: [448, 3.5], 2.5: [390, 3.05], 2: [331, 2.6] },
-    rigel: { 3: [775, 6.1], 2.5: [663, 5.2], 2: [534, 4.2] },
-    deck11: [375, 18], deck051: [323.4, 16], deck0610: [null, 10.9],
-    metal: { 3: [3500, 33.8], 2: [4500, 22.5] },
-    plate: [107, 0.4],
-    screw: { 250: [345, 3.5], 350: [380, 4], 500: [405, 4.5], 750: [510, 5] },
-    bracket: { 270: [112, 0.5], 400: [176, 0.6], 500: [223, 0.7], 600: [233, 0.8] },
+    horiz: { 3: [[217,228,243], 1.7], 2.5: [[186,195,208], 1.4], 2: [[142,149,159], 1.1] },
+    diag: { 3: [[457,480,512], 3.5], 2.5: [[398,418,446], 3.05], 2: [[338,355,379], 2.6] },
+    rigel: { 3: [[791,831,886], 6.1], 2.5: [[676,710,757], 5.2], 2: [[545,572,610], 4.2] },
+    deck11: [[383,402,429], 18], deck051: [[330,347,370], 16], deck0610: [null, 10.9],
+    metal: { 3: [[3570,3749,3998], 33.8], 2: [[4590,4820,5141], 22.5] },
+    plate: [[109,114,122], 0.4],
+    screw: { 250: [[352,370,394], 3.5], 350: [[388,407,435], 4], 500: [[413,434,463], 4.5], 750: [[520,546,582], 5] },
+    bracket: { 270: [[114,120,128], 0.5], 400: [[180,189,202], 0.6], 500: [[227,238,254], 0.7], 600: [[238,250,267], 0.8] },
     clamp: {   // ЛСПХ: стойки, связи, поперечина
-      40: { st4: 1131, st2: 565, long: 1532, short: 1074, pop: 593 },
-      60: { st4: 1379, st2: 696, long: 1795, short: 1258, pop: 696 },
-      100: { st4: 1711, st2: 871, long: 2215, short: 1565, pop: 768 }
+      40: { st4: [1154,1212,1292], st2: [576,605,645], long: [1563,1641,1751], short: [1095,1150,1226], pop: [605,635,678] },
+      60: { st4: [1407,1477,1576], st2: [710,746,795], long: [1831,1923,2051], short: [1283,1347,1437], pop: [710,746,795] },
+      100: { st4: [1745,1832,1954], st2: [888,932,995], long: [2259,2372,2530], short: [1596,1676,1788], pop: [783,822,877] }
     },
     clampKg: { st4: 10.2, st2: 5.2, long: 13.4, short: 9.4, pop: 4.7, hn: 1, hp: 1, lad: 8 },
-    ladder: 1068, deck0515: [413, 25], deck0512: [413, 20]
+    ladder: [1089,1143,1220], deck0515: [[421,442,472], 25], deck0512: [[421,442,472], 20]
   };
   const CLAMP_SERIES = { 40: 'ЛСПХ 40', 60: 'ЛСПХ 60', 100: 'ЛСПХ 100' };
   function supportItem(add, p, qty, id) {
@@ -271,7 +284,9 @@ tfoot td{font-weight:600;border-bottom:0}
   }
   function makeAdd(items) {
     return (id, name, qty, kg, price) => {
-      if (qty > 0) items.push({ id, name, qty, kg: qty * kg, unit: kg, price: price == null ? null : price, cost: price == null ? null : qty * price });
+      if (!(qty > 0)) return;
+      const pr = price == null ? null : price[2];   // в расчёте по умолчанию — розница; страница пересчитывает по выбранному виду цен
+      items.push({ id, name, qty, kg: qty * kg, unit: kg, prices: price == null ? null : price, price: pr, cost: pr == null ? null : qty * pr });
     };
   }
   function totals(items) {
@@ -659,6 +674,37 @@ var fmtM=function(x){return new Intl.NumberFormat('ru-RU',{minimumFractionDigits
 var fmtR=function(x){return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(x)};
 var fmtR0=function(x){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(x))};
 var NOPRICE='по запросу';
+/* ---------- вид цен и ручная правка ---------- */
+var TIERS=[['retail','Розница',2,'розничные'],['opt','Опт',1,'оптовые'],['dealer','Дилер',0,'дилерские']];
+var PT={tier:'retail',edit:{}};   // edit: 'вид|позиция' → цена, ₽ за шт.
+function tierRow(){for(var i=0;i<TIERS.length;i++) if(TIERS[i][0]===PT.tier) return TIERS[i]; return TIERS[0]}
+function ekey(i){return PT.tier+'|'+i.name}
+function costing(m){
+  var ix=tierRow()[2], cost=0, unp=[], edited=0;
+  var rows=m.items.map(function(i){
+    var k=ekey(i), ed=Object.prototype.hasOwnProperty.call(PT.edit,k), list=i.prices?i.prices[ix]:null, p=ed?PT.edit[k]:list;
+    if(ed) edited++;
+    var cs=p==null?null:p*i.qty; if(cs==null) unp.push(i.name); else cost+=cs;
+    return {i:i,price:p,cost:cs,edited:ed,list:list};
+  });
+  return {rows:rows,cost:cost,unpriced:unp,edited:edited};
+}
+function numStr(x){return String(Math.round(x*100)/100).replace('.',',')}
+function setEdit(item,str){
+  var k=ekey(item), s=String(str).replace(/\s/g,'').replace(',','.'), v=s===''?NaN:Number(s);
+  var list=item.prices?item.prices[tierRow()[2]]:null;
+  if(!isFinite(v)||v<0||(list!=null&&Math.abs(v-list)<0.005)) delete PT.edit[k]; else PT.edit[k]=Math.round(v*100)/100;
+}
+function tierSeg(box,name){
+  box.innerHTML=TIERS.map(function(t){return '<label><input type="radio" name="'+name+'" value="'+t[0]+'"'+(t[0]===PT.tier?' checked':'')+'><span>'+t[1]+'</span></label>'}).join('');
+  box.querySelectorAll('input').forEach(function(inp){inp.addEventListener('change',function(){setTier(inp.value)})});
+}
+function setTier(t){
+  PT.tier=t;
+  document.querySelectorAll('input[name="tier-main"],input[name="tier-print"]').forEach(function(i){i.checked=(i.value===t)});
+  renderBom(model); UI.refresh();
+  if(!$('#pmodal').hidden) renderSheet();
+}
 var GROUPCOL={frame:'--c1',frameL:'--c2',frameE:'--c6',half:'--c1',halfpost:'--c1',diag:'--c3',horiz:'--c4',rigel:'--c4',rigelX:'--c4',deck:'--c5',deck05:'--c2',base:'--c7',bracket:'--c6',stab:'--c6',
   st4:'--c1',st2:'--c6',sv:'--c4',pop:'--c4',hn:'--c7',hp:'--c7',lad:'--c2',kr:'--c6',pod:'--c7',anchor:'--c3',sv37:'--c8',sv53:'--c3',op:'--c7',tank:'--wall'};
 
@@ -691,32 +737,36 @@ function update(){
     ?'По ГОСТ: диагонали в шахматном порядке, горизонтали с двух сторон на каждом уровне и ряд по верху, кронштейн на каждые 12 м². Рамы 2 м по высоте, глубина 1 м (серия 20 — 0,7 м), секция 2, 2,5 или 3 м. Серия задаёт трубу рамы и настил. Высота округляется вверх до целого числа рам. Опоры ставятся под каждую стойку. Масса ориентировочная.'
     :m.kind==='clamp'?'Кронштейны анкера — 1 на 25 м² фасада (как на pkprom), можно собрать без кронштейнов. Расчёт остального как в калькуляторе ЛСПХ: стойки 2 и 4 м со смещением стыков, связи по длине фасада из труб 3,6 и 5,2 м, поперечины и хомуты в каждом узле, диагонали через 3–4 пролёта. Масса ориентировочная.'
     :'Леса вокруг резервуара — многогранник: число граней подбирается так, чтобы шаг наружных стоек не превышал заданный. Связи 3,6 м на каждой грани по обоим кольцам, диагонали через грань. Кронштейны анкера — 1 на 25 м² по наружному кольцу, можно собрать без кронштейнов. Настил: при глубине 1,0 м — щиты 1,0×1,0 м, при 1,5 м — 0,5×1,5 м, столько, сколько помещается по внутренней грани. Масса ориентировочная.';
-  // факты
-  var area=m.area, w=m.width, hTotal=m.H;
-  $('#facts').innerHTML=(m.kind==='radius'
-    ? fact('Ø'+dec(m.D)+' × '+hTotal,'внутр. диаметр × высота, м')+fact(m.N+' · '+m.sOut.toFixed(2).replace('.',','),'граней · шаг, м')
-    : fact(dec(w)+' × '+hTotal,'длина × высота, м')+fact(fmtN(area),'площадь фасада, м²'))+
-    fact(fmtR0(m.cost)+' ₽','стоимость'+(m.unpriced.length?' без позиций по запросу':''))+
-    fact(fmtN(Math.round(m.mass)),'масса, кг');
+  renderBom(m);
   $('#badge').textContent=m.kind==='frame'?('ЛРСП '+m.series+' · '+m.s+' '+plural(m.s,['секция','секции','секций'])+' по '+dec(m.cell)+' м'):m.kind==='clamp'?('Хомутовые ЛСПХ '+m.series+' · '+m.b+' '+plural(m.b,['пролёт','пролёта','пролётов'])):('Радиусные ЛСПХ '+m.series+' · '+m.N+' '+plural(m.N,['грань','грани','граней']));
-  // таблица
-  var css=getComputedStyle(document.documentElement);
-  $('#rows').innerHTML=m.items.map(function(i){
-    var col=css.getPropertyValue(GROUPCOL[i.id]||'--c4').trim();
-    return '<tr data-id="'+i.id+'"><td><span class="sw" style="background:'+col+'"></span>'+i.name+'</td><td class="n">'+fmtN(i.qty)+'</td><td class="n">'+(i.price==null?'<span class="np">'+NOPRICE+'</span>':fmtR(i.price))+'</td><td class="n">'+(i.cost==null?'—':fmtR(i.cost))+'</td><td class="n">'+fmtM(i.kg)+'</td></tr>';
-  }).join('');
-  $('#foot').innerHTML='<tr><td>Итого</td><td class="n">'+fmtN(m.items.reduce(function(a,i){return a+i.qty},0))+'</td><td></td><td class="n">'+fmtR(m.cost)+'</td><td class="n">'+fmtM(m.mass)+'</td></tr>'+
-    '<tr class="sub"><td colspan="5">'+(m.area?'За 1 м² фасада: '+fmtR(m.cost/m.area)+' ₽ · ':'')+'Цены с НДС по прайсу от 17.08.2026'+(m.unpriced.length?'. Не вошли в сумму (цена по запросу): '+m.unpriced.join(', ').toLowerCase():'')+'</td></tr>';
-  document.querySelectorAll('#rows tr').forEach(function(tr){
-    tr.addEventListener('mouseenter',function(){View.hover(tr.dataset.id)});
-    tr.addEventListener('mouseleave',function(){View.hover(null)});
-    tr.addEventListener('click',function(){UI.select(UI.sel===tr.dataset.id?null:tr.dataset.id)});
-  });
   var scn=buildScene(m); View.set(scn,m);
   var fr=$('#frag');
   if(scn.fragment){ var f=scn.fragment; fr.hidden=false; fr.textContent=m.kind==='radius'?('На схеме сектор: '+f.shown+' из '+f.total+' граней. Расчёт — на всё кольцо.'):('На схеме фрагмент: '+f.shown+' из '+f.total+' '+(m.kind==='frame'?'секций':'пролётов')+' ('+dec(f.width)+' м из '+dec(f.full)+' м). Расчёт — на всю длину.'); }
   else fr.hidden=true;
   UI.refresh();
+}
+function renderBom(m){
+  // факты
+  var C=costing(m);
+  var area=m.area, w=m.width, hTotal=m.H;
+  $('#facts').innerHTML=(m.kind==='radius'
+    ? fact('Ø'+dec(m.D)+' × '+hTotal,'внутр. диаметр × высота, м')+fact(m.N+' · '+m.sOut.toFixed(2).replace('.',','),'граней · шаг, м')
+    : fact(dec(w)+' × '+hTotal,'длина × высота, м')+fact(fmtN(area),'площадь фасада, м²'))+
+    fact(fmtR0(C.cost)+' ₽','стоимость, '+tierRow()[1].toLowerCase()+(C.unpriced.length?' (без позиций по запросу)':''))+
+    fact(fmtN(Math.round(m.mass)),'масса, кг');
+  // таблица
+  var css=getComputedStyle(document.documentElement);
+  $('#rows').innerHTML=C.rows.map(function(r){
+    var i=r.i, col=css.getPropertyValue(GROUPCOL[i.id]||'--c4').trim();
+    return '<tr data-id="'+i.id+'"><td><span class="sw" style="background:'+col+'"></span>'+i.name+'</td><td class="n">'+fmtN(i.qty)+'</td><td class="n'+(r.edited?' ed" title="Цена изменена вручную, по прайсу: '+(r.list==null?NOPRICE:fmtR(r.list)):'')+'">'+(r.price==null?'<span class="np">'+NOPRICE+'</span>':fmtR(r.price))+'</td><td class="n">'+(r.cost==null?'—':fmtR(r.cost))+'</td><td class="n">'+fmtM(i.kg)+'</td></tr>';
+  }).join('');
+  $('#foot').innerHTML='<tr><td>Итого</td><td class="n">'+fmtN(m.items.reduce(function(a,i){return a+i.qty},0))+'</td><td></td><td class="n">'+fmtR(C.cost)+'</td><td class="n">'+fmtM(m.mass)+'</td></tr>'+
+    '<tr class="sub"><td colspan="5">'+(m.area?'За 1 м² фасада: '+fmtR(C.cost/m.area)+' ₽ · ':'')+'Цены '+tierRow()[3]+', с НДС, по прайсу от 26.10.2026'+(C.edited?'. Изменено вручную: '+C.edited+' '+plural(C.edited,['цена','цены','цен']):'')+(C.unpriced.length?'. Не вошли в сумму (цена по запросу): '+C.unpriced.join(', ').toLowerCase():'')+'</td></tr>';
+  document.querySelectorAll('#rows tr').forEach(function(tr){
+    tr.addEventListener('mouseenter',function(){View.hover(tr.dataset.id)});
+    tr.addEventListener('mouseleave',function(){View.hover(null)});
+    tr.addEventListener('click',function(){UI.select(UI.sel===tr.dataset.id?null:tr.dataset.id)});
+  });
 }
 function dec(x){return String(Math.round(x*100)/100).replace('.',',')}
 function fact(v,l){return '<div class="fact"><b>'+v+'</b><span>'+l+'</span></div>'}
@@ -994,7 +1044,7 @@ var UI={
     if(it){
       var col=css.getPropertyValue(GROUPCOL[it.id]||'--c4').trim();
       info.className='on';
-      info.innerHTML='<div><span class="sw" style="background:'+col+'"></span><b>'+it.name+'</b></div><div class="meta">'+fmtN(it.qty)+' шт. · '+fmtM(it.kg)+' кг · по '+fmtM(it.unit).replace(/^0,0$/,'0')+' кг · '+(it.price==null?'цена '+NOPRICE:fmtR(it.price)+' ₽/шт, '+fmtR(it.cost)+' ₽')+'</div><div class="acts"><button type="button" class="tool" id="i-hide">Скрыть остальные</button><button type="button" class="tool" id="i-x">Снять выбор</button></div>';
+      info.innerHTML='<div><span class="sw" style="background:'+col+'"></span><b>'+it.name+'</b></div><div class="meta">'+fmtN(it.qty)+' шт. · '+fmtM(it.kg)+' кг · по '+fmtM(it.unit).replace(/^0,0$/,'0')+' кг · '+(function(){var r=costing(model).rows.filter(function(x){return x.i.name===it.name})[0];return !r||r.price==null?'цена '+NOPRICE:fmtR(r.price)+' ₽/шт, '+fmtR(r.cost)+' ₽'})()+'</div><div class="acts"><button type="button" class="tool" id="i-hide">Скрыть остальные</button><button type="button" class="tool" id="i-x">Снять выбор</button></div>';
       $('#i-x').onclick=function(){UI.select(null)};
       $('#i-hide').onclick=function(){
         m.items.forEach(function(x){UI.hidden[x.id]=(x.id!==it.id)}); UI.hidden[it.id]=false; View.setHidden(UI.hidden); UI.refresh();
@@ -1238,40 +1288,68 @@ function drawElevation(sc, Wpx, Hpx){
 }
 var PRINT={cv:null,name:'lesa'};
 function openPrint(){
-  var m=model, st=state[state.kind], frame=m.kind==='frame', rad=m.kind==='radius';
+  var m=model, frame=m.kind==='frame', rad=m.kind==='radius';
   var sc=buildScene(m);
+  var cv=drawElevation(sc, 760, 560); PRINT.cv=cv; PRINT.m=m; PRINT.sc=sc; PRINT.img=cv.toDataURL('image/png');
+  PRINT.name=(frame?'ramnye':rad?'radiusnye':'homutovye')+'-'+(rad?'D'+dec(m.D):dec(m.width))+'x'+dec(m.H);
+  tierSeg($('#tier-print'),'tier-print');
+  renderSheet();
+  var inFrame=false; try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+  $('#p-note').textContent='Цену любой позиции можно исправить прямо в листе: щёлкните по ней и введите свою. Правка действует для выбранного вида цен. '+(inFrame?'Если окно печати не откроется, откройте калькулятор файлом kalkulyator-lesov-3d.html в браузере: там работают печать, сохранение в PDF и PNG.':'В окне печати можно выбрать принтер или «Сохранить как PDF».');
+  $('#p-png').hidden=inFrame;
+  $('#pmodal').hidden=false; $('#p-print').focus();
+}
+function renderSheet(){
+  var m=PRINT.m, sc=PRINT.sc, frame=m.kind==='frame', rad=m.kind==='radius', C=costing(m);
   var title=frame?('Строительные леса рамные ЛРСП '+m.series):rad?'Леса хомутовые радиусные ЛСПХ '+m.series:'Леса хомутовые ЛСПХ '+m.series;
   var rows=[];
-  function r(n,v){rows.push('<tr><td>'+n+'</td><td class="v" colspan="3">'+v+'</td></tr>')}
+  function r(n,v,cls,id){rows.push('<tr'+(cls?' class="'+cls+'"':'')+'><td>'+n+'</td><td class="v" colspan="3"'+(id?' id="'+id+'"':'')+'>'+v+'</td></tr>')}
   function gap(){rows.push('<tr class="gap"><td colspan="4"></td></tr>')}
   r('Высота (м)',dec(m.H)); if(rad){ r('Внутренний диаметр (м)',dec(m.D)); r('Граней',m.N); r('Шаг стоек (м)',m.sOut.toFixed(2).replace('.',',')); r('Глубина (м)',dec(m.depth)); } else r('Длина (м)',dec(m.width));
   if(m.kind==='clamp'){ r('Шаг стоек (м)',dec(m.step)); r('Глубина (м)',dec(m.depth)); }
   if(frame){ r('Труба рамы',m.pipe+' мм'); r('Ширина секции (м)',dec(m.cell)); }
   r('Ярусов настила',m.t); r('Подъёмов',m.lad);
   if(frame) r('Ярусы',{full:'с ригелями и настилами',rigel:'с ригелями без настилов',none:'без ригелей и настилов'}[m.deckSet||'full']);
-  if(frame) r('Расчёт связей',m.method==='gost'?'по ГОСТ':['','диаг. + гориз.','экономный','диаг. + 2 гориз.'][m.braces]);
+  if(frame) r('Расчёт связей',m.method==='gost'?'по ГОСТ':['','диаг. + гориз.','','диаг. + 2 гориз.'][m.braces]);
   gap();
   rows.push('<tr class="hd"><td>Позиция</td><td class="v">Кол-во</td><td class="v">Цена, ₽</td><td class="v">Сумма, ₽</td></tr>');
-  m.items.forEach(function(i){rows.push('<tr><td>'+i.name+'</td><td class="v">'+fmtN(i.qty)+'</td><td class="v">'+(i.price==null?'—':fmtR(i.price))+'</td><td class="v">'+(i.cost==null?NOPRICE:fmtR(i.cost))+'</td></tr>')});
+  C.rows.forEach(function(x,k){
+    rows.push('<tr><td>'+x.i.name+'</td><td class="v">'+fmtN(x.i.qty)+'</td><td class="v"><input class="pe'+(x.edited?' ed':'')+'" data-k="'+k+'" inputmode="decimal" autocomplete="off" value="'+(x.price==null?'':numStr(x.price))+'" placeholder="'+NOPRICE+'" aria-label="Цена: '+x.i.name+'"'+(x.edited?' title="По прайсу: '+(x.list==null?NOPRICE:fmtR(x.list))+'"':'')+'></td><td class="v" id="ps-'+k+'">'+(x.cost==null?NOPRICE:fmtR(x.cost))+'</td></tr>');
+  });
   gap();
-  r('Стоимость (₽)',fmtR(m.cost)); rows[rows.length-1]=rows[rows.length-1].replace('<tr>','<tr class="tot">');
-  if(m.area){ r('За 1 кв.м (₽)',fmtR(m.cost/m.area)); }
-  rows.push('<tr class="tot"><td>Масса (кг)</td><td class="v" colspan="3">'+fmtN(Math.round(m.mass))+'</td></tr>');
-  rows.push('<tr class="tot"><td>'+(rad?'Площадь по наружному кольцу (кв.м)':'Площадь (кв.м)')+'</td><td class="v" colspan="3">'+fmtN(m.area)+'</td></tr>');
-  rows.push('<tr class="tot"><td>Элементов (шт)</td><td class="v" colspan="3">'+fmtN(m.items.reduce(function(a,i){return a+i.qty},0))+'</td></tr>');
-  var cv=drawElevation(sc, 760, 560); PRINT.cv=cv;
-  PRINT.name=(frame?'ramnye':rad?'radiusnye':'homutovye')+'-'+(rad?'D'+dec(m.D):dec(m.width))+'x'+dec(m.H);
-  var d=new Date(), date=d.toLocaleDateString('ru-RU');
+  r('Стоимость (₽)',fmtR(C.cost),'tot','ps-cost');
+  if(m.area){ r('За 1 кв.м (₽)',fmtR(C.cost/m.area),'','ps-m2'); }
+  r('Масса (кг)',fmtN(Math.round(m.mass)),'tot');
+  r(rad?'Площадь по наружному кольцу (кв.м)':'Площадь (кв.м)',fmtN(m.area),'tot');
+  r('Элементов (шт)',fmtN(m.items.reduce(function(a,i){return a+i.qty},0)),'tot');
+  var date=new Date().toLocaleDateString('ru-RU');
   $('#sheet').innerHTML='<h1>'+title+'</h1><div class="psub">'+(rad?('Ø '+dec(m.D)+' м × '+dec(m.H)+' м · '+m.N+' граней'):(dec(m.width)+' × '+dec(m.H)+' м · '+fmtN(m.area)+' м²'))+' · '+date+'</div>'+
     '<div class="pgrid"><table class="ptab"><thead><tr><th>Наименование</th><th colspan="3">Значение</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
-    '<div class="pimg"><img alt="Вид фасада лесов" src="'+cv.toDataURL('image/png')+'">'+
+    '<div class="pimg"><img alt="Вид фасада лесов" src="'+PRINT.img+'">'+
     (sc.fragment?'<div class="pcap">На схеме '+(rad?'сектор':'фрагмент')+': '+sc.fragment.shown+' из '+sc.fragment.total+' '+(frame?'секций':rad?'граней':'пролётов')+'. Состав комплекта — на всё сооружение.</div>':'<div class="pcap">'+(rad?'Вид сбоку на кольцо лесов':'Вид с фасада')+'</div>')+'</div></div>'+
-    '<div class="pfoot">Цены с НДС по прайсу от 17.08.2026'+(m.unpriced.length?'; позиции «'+NOPRICE+'» в сумму не входят':'')+'. Масса ориентировочная. Расчёт: Калькулятор лесов 3D.</div>';
-  var inFrame=false; try{inFrame=window.self!==window.top}catch(e){inFrame=true}
-  $('#p-note').textContent=inFrame?'Если окно печати не откроется, откройте калькулятор файлом kalkulyator-lesov-3d.html в браузере: там работают печать, сохранение в PDF и PNG.':'В окне печати можно выбрать принтер или «Сохранить как PDF».';
-  $('#p-png').hidden=inFrame;
-  $('#pmodal').hidden=false; $('#p-print').focus();
+    '<div class="pfoot" id="ps-foot"></div>';
+  sheetFoot(C);
+  $('#sheet').querySelectorAll('input.pe').forEach(function(inp){
+    inp.addEventListener('input',function(){ var x=C.rows[+inp.dataset.k]; setEdit(x.i,inp.value); sheetSums(); renderBom(model); UI.refresh(); });
+    inp.addEventListener('change',function(){ var x=costing(PRINT.m).rows[+inp.dataset.k]; inp.value=x.price==null?'':numStr(x.price); });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ inp.blur(); } });
+  });
 }
+function sheetFoot(C){
+  $('#ps-foot').textContent='Цены '+tierRow()[3]+', с НДС'+(C.edited?', с учётом согласованных цен':'')+'. '+(C.unpriced.length?'Позиции «'+NOPRICE+'» в сумму не входят. ':'')+'Масса ориентировочная. Расчёт: Калькулятор лесов 3D.';
+  $('#p-reset').hidden=!Object.keys(PT.edit).some(function(k){return k.indexOf(PT.tier+'|')===0});
+}
+function sheetSums(){
+  var m=PRINT.m, C=costing(m);
+  C.rows.forEach(function(x,k){ var td=$('#ps-'+k); if(td) td.textContent=x.cost==null?NOPRICE:fmtR(x.cost);
+    var inp=$('#sheet input[data-k="'+k+'"]'); if(inp){ inp.classList.toggle('ed',x.edited); inp.title=x.edited?'По прайсу: '+(x.list==null?NOPRICE:fmtR(x.list)):''; } });
+  $('#ps-cost').textContent=fmtR(C.cost); if($('#ps-m2')) $('#ps-m2').textContent=fmtR(C.cost/m.area);
+  sheetFoot(C);
+}
+$('#p-reset').addEventListener('click',function(){
+  Object.keys(PT.edit).forEach(function(k){ if(k.indexOf(PT.tier+'|')===0) delete PT.edit[k]; });
+  renderBom(model); UI.refresh(); renderSheet();
+});
 $('#printbtn').addEventListener('click',openPrint);
 $('#p-close').addEventListener('click',function(){$('#pmodal').hidden=true});
 $('#pmodal').addEventListener('click',function(e){if(e.target.id==='pmodal')$('#pmodal').hidden=true});
@@ -1294,13 +1372,14 @@ document.querySelectorAll('#tabs button').forEach(function(b){
 function sc_reset(){}
 $('#copy').addEventListener('click',function(){
   var m=model; var txt=(m.kind==='frame'?'Рамные леса, '+dec(m.width)+' × '+m.H+' м':m.kind==='clamp'?'Хомутовые леса ЛСПХ, '+dec(m.width)+' × '+m.H+' м':'Радиусные леса ЛСПХ, Ø '+dec(m.D)+' × '+m.H+' м, граней '+m.N)+', ярусов настила: '+m.t+'\n'+
-    m.items.map(function(i){return i.name+' — '+i.qty+' шт.'+(i.cost==null?' (цена по запросу)':' × '+fmtR(i.price)+' = '+fmtR(i.cost)+' ₽')}).join('\n')+'\nИтого: '+fmtR(m.cost)+' ₽ с НДС'+(m.unpriced.length?' (без позиций по запросу)':'')+'\nМасса ориентировочно: '+Math.round(m.mass)+' кг';
+    (function(){var C=costing(m);return C.rows.map(function(x){return x.i.name+' — '+x.i.qty+' шт.'+(x.cost==null?' (цена по запросу)':' × '+fmtR(x.price)+' = '+fmtR(x.cost)+' ₽')}).join('\n')+'\nИтого ('+tierRow()[3]+' цены): '+fmtR(C.cost)+' ₽ с НДС'+(C.unpriced.length?' (без позиций по запросу)':'')})()+'\nМасса ориентировочно: '+Math.round(m.mass)+' кг';
   var btn=$('#copy'), fb=$('#fallback');
   function ok(){btn.textContent='Скопировано';setTimeout(function(){btn.textContent='Скопировать список'},1500)}
   function fail(){fb.style.display='block';fb.value=txt;fb.focus();fb.select()}
   try{ navigator.clipboard.writeText(txt).then(ok,fail) }catch(e){ fail() }
 });
 
+tierSeg($('#tier-main'),'tier-main');
 buildDims(); buildOpts(); update();
 })();
 </script>
